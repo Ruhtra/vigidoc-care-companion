@@ -11,7 +11,7 @@ interface VitalCardProps {
 
 const VitalCard = ({ icon, label, value, unit, status = "normal", onClick }: VitalCardProps) => {
   const statusStyles = {
-    normal: "border-success/30 bg-success/5",
+    normal: "border-primary/30 bg-primary/5",
     warning: "border-warning/30 bg-warning/5",
     alert: "border-destructive/30 bg-destructive/5",
   };
