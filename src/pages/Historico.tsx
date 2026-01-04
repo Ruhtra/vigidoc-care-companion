@@ -71,8 +71,10 @@ const Historico = () => {
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
       <header className="px-5 pt-6 pb-4">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-center mb-6">
           <VigiDocLogo size="sm" />
+        </div>
+        <div className="flex justify-end mb-4">
           <button
             onClick={exportToCSV}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 text-primary font-medium text-sm hover:bg-primary/20 transition-colors"
