@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { 
   User, Phone, Calendar, AlertCircle, FileText, 
   LogOut, ChevronRight, Shield, Download, Edit2, 
-  Save, X, Cloud, LogIn
+  Save, X, Cloud, LogIn, Share2
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import VigiDocLogo from "@/components/VigiDocLogo";
@@ -327,6 +327,22 @@ const Perfil = () => {
                 <p className="font-medium text-foreground">Instalar App</p>
                 <p className="text-sm text-muted-foreground">
                   Adicione à tela inicial
+                </p>
+              </div>
+              <ChevronRight className="text-muted-foreground" size={20} />
+            </Link>
+            
+            <Link
+              to="/compartilhar"
+              className="w-full flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors text-left border-b border-border/50"
+            >
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Share2 className="text-primary" size={20} />
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-foreground">Compartilhar com Médico</p>
+                <p className="text-sm text-muted-foreground">
+                  Envie seus dados via link ou QR
                 </p>
               </div>
               <ChevronRight className="text-muted-foreground" size={20} />
