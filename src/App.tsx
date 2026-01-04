@@ -11,6 +11,7 @@ import Instalar from "./pages/Instalar";
 import Auth from "./pages/Auth";
 import Compartilhar from "./pages/Compartilhar";
 import Relatorio from "./pages/Relatorio";
+import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/compartilhar" element={<Compartilhar />} />
           <Route path="/relatorio/:code" element={<Relatorio />} />
+          <Route path="/admin" element={<Admin />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
