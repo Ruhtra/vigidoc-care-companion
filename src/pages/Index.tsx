@@ -129,12 +129,8 @@ const Index = () => {
           <p className="text-muted-foreground text-sm font-medium capitalize">
             {dateFormatter.format(today)}
           </p>
-          <h1 className="text-2xl font-bold text-foreground mt-2">
-            Olá, João! 👋
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Como você está se sentindo hoje?
-          </p>
+          <h1 className="text-2xl font-bold text-foreground mt-2">Olá, João!</h1>
+          <p className="text-muted-foreground mt-1">Registre seus sinais vitais</p>
         </div>
       </header>
 
