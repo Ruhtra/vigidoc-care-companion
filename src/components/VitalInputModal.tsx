@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { X } from "lucide-react";
+import { X, Clock } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface VitalInputModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (value: string, value2?: string) => void;
+  onSave: (value: string, value2?: string, time?: string) => void;
   title: string;
   label: string;
   label2?: string;
@@ -28,19 +30,24 @@ const VitalInputModal = ({
   placeholder2 = "",
   type = "number",
 }: VitalInputModalProps) => {
+  const now = new Date();
   const [value, setValue] = useState("");
   const [value2, setValue2] = useState("");
+  const [time, setTime] = useState(format(now, "HH:mm"));
 
   if (!isOpen) return null;
 
   const handleSave = () => {
     if (value) {
-      onSave(value, value2);
+      onSave(value, value2, time);
       setValue("");
       setValue2("");
+      setTime(format(new Date(), "HH:mm"));
       onClose();
     }
   };
+
+  const formattedDate = format(now, "EEEE, d 'de' MMMM", { locale: ptBR });
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
@@ -56,9 +63,28 @@ const VitalInputModal = ({
           <X size={20} className="text-muted-foreground" />
         </button>
         
-        <h2 className="text-xl font-bold text-foreground mb-6">{title}</h2>
+        <h2 className="text-xl font-bold text-foreground mb-2">{title}</h2>
+        <p className="text-sm text-muted-foreground capitalize mb-6">{formattedDate}</p>
         
         <div className="space-y-4">
+          {/* Campo de hora */}
+          <div>
+            <label className="block text-sm font-medium text-muted-foreground mb-2">
+              Horário da medição
+            </label>
+            <div className="flex items-center gap-3">
+              <div className="relative flex-1">
+                <Clock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="time"
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
+                  className="vital-input flex-1 pl-10 w-full"
+                />
+              </div>
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-muted-foreground mb-2">
               {label}
