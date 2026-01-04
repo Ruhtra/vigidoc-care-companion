@@ -121,6 +121,9 @@ const Index = () => {
   return <div className="min-h-screen bg-background pb-24">
       {/* Header */}
       <header className="px-5 pt-8 pb-6">
+        <div className="flex items-center justify-center mb-8">
+          <VigiDocLogo size="lg" />
+        </div>
         
         <div className="animate-fade-in text-center">
           <p className="text-muted-foreground text-sm font-medium capitalize">
