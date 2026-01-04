@@ -8,30 +8,30 @@
 
 @layer base {
   :root {
-    /* VigiDoc Healthcare Theme - Calming & Professional */
-    --background: 180 20% 98%;
-    --foreground: 200 25% 15%;
+    /* VigiDoc Brand Colors - #0A6F97 (teal) & #002959 (navy) */
+    --background: 200 20% 98%;
+    --foreground: 212 100% 17%;
 
     --card: 0 0% 100%;
-    --card-foreground: 200 25% 15%;
+    --card-foreground: 212 100% 17%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 200 25% 15%;
+    --popover-foreground: 212 100% 17%;
 
-    /* Primary - Calming Teal */
-    --primary: 197 88% 32%;
+    /* Primary - VigiDoc Teal #0A6F97 */
+    --primary: 197 87% 31%;
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary - Soft Blue */
-    --secondary: 200 30% 94%;
-    --secondary-foreground: 212 100% 17%;
+    /* Secondary - VigiDoc Navy #002959 */
+    --secondary: 212 100% 17%;
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 180 15% 95%;
-    --muted-foreground: 200 15% 45%;
+    --muted: 200 15% 95%;
+    --muted-foreground: 212 50% 40%;
 
-    /* Accent - Warm Coral */
-    --accent: 12 80% 62%;
-    --accent-foreground: 0 0% 100%;
+    /* Accent - Light Teal */
+    --accent: 197 60% 90%;
+    --accent-foreground: 212 100% 17%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
@@ -42,16 +42,16 @@
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 180 15% 88%;
-    --input: 180 15% 88%;
-    --ring: 174 62% 40%;
+    --border: 200 15% 88%;
+    --input: 200 15% 88%;
+    --ring: 197 87% 31%;
 
     --radius: 0.75rem;
 
-    /* Custom Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(174 62% 40%), hsl(180 55% 48%));
-    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%), hsl(180 20% 98%));
-    --gradient-hero: linear-gradient(135deg, hsl(174 62% 35%), hsl(180 50% 45%));
+    /* Custom Gradients - VigiDoc Brand */
+    --gradient-primary: linear-gradient(135deg, hsl(197 87% 31%), hsl(212 100% 17%));
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%), hsl(200 20% 98%));
+    --gradient-hero: linear-gradient(135deg, hsl(197 87% 35%), hsl(212 80% 25%));
 
     /* Shadows */
     --shadow-soft: 0 4px 20px -4px hsl(200 25% 15% / 0.08);
@@ -69,25 +69,25 @@
   }
 
   .dark {
-    --background: 200 25% 8%;
-    --foreground: 180 15% 95%;
+    --background: 212 50% 8%;
+    --foreground: 200 15% 95%;
 
-    --card: 200 20% 12%;
-    --card-foreground: 180 15% 95%;
+    --card: 212 40% 12%;
+    --card-foreground: 200 15% 95%;
 
-    --popover: 200 20% 12%;
-    --popover-foreground: 180 15% 95%;
+    --popover: 212 40% 12%;
+    --popover-foreground: 200 15% 95%;
 
-    --primary: 174 62% 50%;
-    --primary-foreground: 200 25% 8%;
+    --primary: 197 87% 45%;
+    --primary-foreground: 212 100% 8%;
 
-    --secondary: 200 20% 18%;
-    --secondary-foreground: 180 15% 90%;
+    --secondary: 212 60% 25%;
+    --secondary-foreground: 200 15% 95%;
 
-    --muted: 200 20% 15%;
+    --muted: 212 30% 15%;
     --muted-foreground: 200 15% 60%;
 
-    --accent: 12 75% 55%;
+    --accent: 197 50% 25%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 62% 50%;
@@ -96,19 +96,19 @@
     --success: 152 55% 48%;
     --success-foreground: 0 0% 100%;
     --warning: 38 85% 55%;
-    --warning-foreground: 200 25% 8%;
+    --warning-foreground: 212 50% 8%;
 
-    --border: 200 20% 20%;
-    --input: 200 20% 20%;
-    --ring: 174 62% 50%;
+    --border: 212 30% 20%;
+    --input: 212 30% 20%;
+    --ring: 197 87% 45%;
 
-    --gradient-primary: linear-gradient(135deg, hsl(174 62% 45%), hsl(180 50% 55%));
-    --gradient-card: linear-gradient(180deg, hsl(200 20% 12%), hsl(200 25% 10%));
-    --gradient-hero: linear-gradient(135deg, hsl(174 62% 40%), hsl(180 45% 50%));
+    --gradient-primary: linear-gradient(135deg, hsl(197 87% 40%), hsl(212 80% 30%));
+    --gradient-card: linear-gradient(180deg, hsl(212 40% 12%), hsl(212 50% 10%));
+    --gradient-hero: linear-gradient(135deg, hsl(197 87% 35%), hsl(212 80% 25%));
 
     --shadow-soft: 0 4px 20px -4px hsl(0 0% 0% / 0.3);
     --shadow-card: 0 2px 12px -2px hsl(0 0% 0% / 0.25);
-    --shadow-button: 0 4px 14px -3px hsl(174 62% 50% / 0.4);
+    --shadow-button: 0 4px 14px -3px hsl(197 87% 45% / 0.4);
 
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
