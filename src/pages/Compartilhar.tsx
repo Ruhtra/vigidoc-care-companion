@@ -87,7 +87,8 @@ const Compartilhar = () => {
   };
 
   const generateShareCode = () => {
-    return Math.random().toString(36).substring(2, 8).toUpperCase();
+    // Use cryptographically secure random generation
+    return crypto.randomUUID().replace(/-/g, '').substring(0, 12).toUpperCase();
   };
 
   const handleCreateShare = async () => {
