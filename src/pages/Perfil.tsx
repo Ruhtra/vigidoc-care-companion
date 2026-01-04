@@ -35,7 +35,7 @@ const Perfil = () => {
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
       <header className="px-5 pt-6 pb-4">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-center mb-6">
           <VigiDocLogo size="sm" />
         </div>
       </header>
