@@ -109,109 +109,65 @@ export const useVitals = () => {
     loadVitals();
   }, [loadVitals]);
 
-  const saveVital = async (key: string, value: number | string, value2?: number) => {
+  const saveVital = async (key: string, value: number | string, value2?: number, time?: string) => {
     const today = new Date();
-    const todayStr = today.toDateString();
+    
+    // Cria timestamp com a hora informada
+    let recordedAt = today;
+    if (time) {
+      const [hours, minutes] = time.split(':').map(Number);
+      recordedAt = new Date(today.getFullYear(), today.getMonth(), today.getDate(), hours, minutes);
+    }
+
+    const insertData: Record<string, number | null> = {};
+    
+    if (key === "bloodPressure" && value2 !== undefined) {
+      insertData.systolic = Number(value);
+      insertData.diastolic = value2;
+    } else if (key === "heartRate") {
+      insertData.heart_rate = Number(value);
+    } else if (key === "oxygenSaturation") {
+      insertData.oxygen_saturation = Number(value);
+    } else if (key === "painLevel") {
+      insertData.pain_level = Number(value);
+    } else {
+      insertData[key] = Number(value);
+    }
 
     if (user) {
-      // Save to Supabase
-      const existingRecord = vitals.find(
-        (v) => new Date(v.recorded_at).toDateString() === todayStr
-      );
+      // Sempre cria um novo registro (permite múltiplas medições por dia)
+      const { error } = await supabase.from("vital_records").insert({
+        user_id: user.id,
+        recorded_at: recordedAt.toISOString(),
+        ...insertData
+      });
 
-      const updateData: Record<string, number | null> = {};
-      
-      if (key === "bloodPressure" && value2 !== undefined) {
-        updateData.systolic = Number(value);
-        updateData.diastolic = value2;
-      } else if (key === "heartRate") {
-        updateData.heart_rate = Number(value);
-      } else if (key === "oxygenSaturation") {
-        updateData.oxygen_saturation = Number(value);
-      } else if (key === "painLevel") {
-        updateData.pain_level = Number(value);
-      } else {
-        updateData[key] = Number(value);
-      }
-
-      if (existingRecord) {
-        const { error } = await supabase
-          .from("vital_records")
-          .update(updateData)
-          .eq("id", existingRecord.id);
-
-        if (error) {
-          console.error("Error updating vital:", error);
-        }
-      } else {
-        const { error } = await supabase.from("vital_records").insert({
-          user_id: user.id,
-          recorded_at: today.toISOString(),
-          ...updateData
-        });
-
-        if (error) {
-          console.error("Error inserting vital:", error);
-        }
+      if (error) {
+        console.error("Error inserting vital:", error);
       }
 
       loadVitals();
     } else {
-      // Save to localStorage (offline mode)
+      // Save to localStorage (offline mode) - sempre cria novo registro
       setVitals((prev) => {
-        const existingIndex = prev.findIndex(
-          (v) => new Date(v.recorded_at).toDateString() === todayStr
-        );
-
-        let updated: VitalRecord[];
-
-        if (existingIndex >= 0) {
-          updated = [...prev];
-          if (key === "bloodPressure" && value2 !== undefined) {
-            updated[existingIndex] = {
-              ...updated[existingIndex],
-              systolic: Number(value),
-              diastolic: value2,
-            };
-          } else if (key === "heartRate") {
-            updated[existingIndex] = { ...updated[existingIndex], heart_rate: Number(value) };
-          } else if (key === "oxygenSaturation") {
-            updated[existingIndex] = { ...updated[existingIndex], oxygen_saturation: Number(value) };
-          } else if (key === "painLevel") {
-            updated[existingIndex] = { ...updated[existingIndex], pain_level: Number(value) };
-          } else if (key === "temperature") {
-            updated[existingIndex] = { ...updated[existingIndex], temperature: Number(value) };
-          } else if (key === "weight") {
-            updated[existingIndex] = { ...updated[existingIndex], weight: Number(value) };
-          }
-        } else {
-          const newRecord: VitalRecord = {
-            id: crypto.randomUUID(),
-            user_id: "local",
-            recorded_at: today.toISOString(),
-          };
-          if (key === "bloodPressure" && value2 !== undefined) {
-            newRecord.systolic = Number(value);
-            newRecord.diastolic = value2;
-          } else if (key === "heartRate") {
-            newRecord.heart_rate = Number(value);
-          } else if (key === "oxygenSaturation") {
-            newRecord.oxygen_saturation = Number(value);
-          } else if (key === "painLevel") {
-            newRecord.pain_level = Number(value);
-          } else if (key === "temperature") {
-            newRecord.temperature = Number(value);
-          } else if (key === "weight") {
-            newRecord.weight = Number(value);
-          }
-          updated = [...prev, newRecord];
-        }
-
+        const newRecord: VitalRecord = {
+          id: crypto.randomUUID(),
+          user_id: "local",
+          recorded_at: recordedAt.toISOString(),
+          ...insertData
+        };
+        
+        const updated = [...prev, newRecord];
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
         
-        const todayRecord = updated.find((v) => new Date(v.recorded_at).toDateString() === todayStr);
-        if (todayRecord) {
-          setTodayVitals(todayRecord);
+        // Atualiza todayVitals com o registro mais recente do dia
+        const todayStr = today.toDateString();
+        const todayRecords = updated
+          .filter((v) => new Date(v.recorded_at).toDateString() === todayStr)
+          .sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime());
+        
+        if (todayRecords.length > 0) {
+          setTodayVitals(todayRecords[0]);
         }
 
         return updated;
