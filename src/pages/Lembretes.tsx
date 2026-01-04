@@ -1,74 +1,101 @@
-import { useState } from "react";
-import { Bell, Plus, Clock, Trash2, Check } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Bell, Plus, Clock, Trash2, Check, BellRing, BellOff, Pill, Activity } from "lucide-react";
 import VigiDocLogo from "@/components/VigiDocLogo";
 import BottomNav from "@/components/BottomNav";
-
-interface Reminder {
-  id: string;
-  time: string;
-  label: string;
-  enabled: boolean;
-  days: string[];
-}
+import { useReminders } from "@/hooks/useReminders";
+import { useNotifications } from "@/hooks/useNotifications";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { Link } from "react-router-dom";
 
 const DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 const Lembretes = () => {
-  const [reminders, setReminders] = useState<Reminder[]>([
-    {
-      id: "1",
-      time: "08:00",
-      label: "Coleta da manhã",
-      enabled: true,
-      days: ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"],
-    },
-    {
-      id: "2",
-      time: "14:00",
-      label: "Coleta da tarde",
-      enabled: true,
-      days: ["Seg", "Ter", "Qua", "Qui", "Sex"],
-    },
-    {
-      id: "3",
-      time: "20:00",
-      label: "Coleta da noite",
-      enabled: false,
-      days: ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"],
-    },
-  ]);
+  const { user } = useAuth();
+  const { reminders, loading, addReminder, toggleReminder, deleteReminder } = useReminders();
+  const { permission, isSupported, requestPermission, showNotification, scheduleLocalNotification } = useNotifications();
+  const { toast } = useToast();
+  const scheduledNotificationsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   const [showNewReminder, setShowNewReminder] = useState(false);
   const [newTime, setNewTime] = useState("09:00");
   const [newLabel, setNewLabel] = useState("");
   const [selectedDays, setSelectedDays] = useState<string[]>(DAYS);
+  const [reminderType, setReminderType] = useState<"vital_collection" | "medication">("vital_collection");
 
-  const toggleReminder = (id: string) => {
-    setReminders((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, enabled: !r.enabled } : r))
-    );
+  // Schedule notifications for enabled reminders
+  useEffect(() => {
+    if (permission !== "granted") return;
+
+    // Clear existing scheduled notifications
+    scheduledNotificationsRef.current.forEach((timeout) => clearTimeout(timeout));
+    scheduledNotificationsRef.current.clear();
+
+    const now = new Date();
+    const dayNames = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+    const currentDay = dayNames[now.getDay()];
+
+    reminders
+      .filter((r) => r.enabled && r.days.includes(currentDay))
+      .forEach((reminder) => {
+        const [hours, minutes] = reminder.time.split(":").map(Number);
+        const scheduledTime = new Date();
+        scheduledTime.setHours(hours, minutes, 0, 0);
+
+        if (scheduledTime > now) {
+          const timeoutId = scheduleLocalNotification(
+            "VigiDoc - Lembrete",
+            reminder.label,
+            scheduledTime
+          );
+          if (timeoutId) {
+            scheduledNotificationsRef.current.set(reminder.id, timeoutId);
+          }
+        }
+      });
+
+    return () => {
+      scheduledNotificationsRef.current.forEach((timeout) => clearTimeout(timeout));
+    };
+  }, [reminders, permission, scheduleLocalNotification]);
+
+  const handleEnableNotifications = async () => {
+    const granted = await requestPermission();
+    if (granted) {
+      toast({
+        title: "Notificações ativadas!",
+        description: "Você receberá alertas nos horários configurados.",
+      });
+      // Test notification
+      showNotification("VigiDoc", {
+        body: "Notificações ativadas com sucesso! 🎉",
+      });
+    } else {
+      toast({
+        title: "Permissão negada",
+        description: "Ative as notificações nas configurações do navegador.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const deleteReminder = (id: string) => {
-    setReminders((prev) => prev.filter((r) => r.id !== id));
-  };
-
-  const addReminder = () => {
+  const handleAddReminder = async () => {
     if (!newLabel || selectedDays.length === 0) return;
 
-    const newReminder: Reminder = {
-      id: crypto.randomUUID(),
-      time: newTime,
-      label: newLabel,
-      enabled: true,
-      days: selectedDays,
-    };
-
-    setReminders((prev) => [...prev, newReminder]);
-    setNewLabel("");
-    setNewTime("09:00");
-    setSelectedDays(DAYS);
-    setShowNewReminder(false);
+    const success = await addReminder(newTime, newLabel, selectedDays, reminderType);
+    
+    if (success) {
+      toast({
+        title: "Lembrete criado!",
+        description: `${newLabel} às ${newTime}`,
+      });
+      setNewLabel("");
+      setNewTime("09:00");
+      setSelectedDays(DAYS);
+      setReminderType("vital_collection");
+      setShowNewReminder(false);
+    }
   };
 
   const toggleDay = (day: string) => {
@@ -76,6 +103,26 @@ const Lembretes = () => {
       prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
     );
   };
+
+  const getReminderIcon = (type: string) => {
+    switch (type) {
+      case "medication":
+        return <Pill className="text-primary" size={24} />;
+      case "vital_collection":
+      default:
+        return <Activity className="text-primary" size={24} />;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-pulse-soft">
+          <VigiDocLogo size="lg" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -87,25 +134,89 @@ const Lembretes = () => {
 
         <h1 className="text-2xl font-bold text-foreground">Lembretes</h1>
         <p className="text-muted-foreground mt-1">
-          Configure seus horários de coleta
+          Configure seus horários de coleta e medicação
         </p>
       </header>
 
-      {/* Info Card */}
+      {/* Notification Permission Card */}
       <section className="px-5 mb-6">
-        <div className="bg-accent/10 border border-accent/20 rounded-2xl p-4 flex items-start gap-3">
-          <Bell className="text-accent flex-shrink-0 mt-0.5" size={20} />
-          <div>
-            <p className="text-sm text-foreground font-medium">
-              Notificações Push
-            </p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Para receber alertas, conecte o backend do aplicativo. Os lembretes
-              serão enviados nos horários configurados.
-            </p>
+        {!isSupported ? (
+          <div className="bg-muted rounded-2xl p-4 flex items-start gap-3">
+            <BellOff className="text-muted-foreground flex-shrink-0 mt-0.5" size={20} />
+            <div>
+              <p className="text-sm text-foreground font-medium">
+                Notificações não suportadas
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Seu navegador não suporta notificações push. Tente usar o Chrome ou Safari.
+              </p>
+            </div>
           </div>
-        </div>
+        ) : permission === "granted" ? (
+          <div className="bg-success/10 border border-success/20 rounded-2xl p-4 flex items-start gap-3">
+            <BellRing className="text-success flex-shrink-0 mt-0.5" size={20} />
+            <div>
+              <p className="text-sm text-foreground font-medium">
+                Notificações ativadas
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Você receberá alertas nos horários configurados.
+              </p>
+            </div>
+          </div>
+        ) : permission === "denied" ? (
+          <div className="bg-destructive/10 border border-destructive/20 rounded-2xl p-4 flex items-start gap-3">
+            <BellOff className="text-destructive flex-shrink-0 mt-0.5" size={20} />
+            <div>
+              <p className="text-sm text-foreground font-medium">
+                Notificações bloqueadas
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Para receber alertas, ative as notificações nas configurações do seu navegador.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-accent/50 border border-accent rounded-2xl p-4">
+            <div className="flex items-start gap-3">
+              <Bell className="text-primary flex-shrink-0 mt-0.5" size={20} />
+              <div className="flex-1">
+                <p className="text-sm text-foreground font-medium">
+                  Ativar notificações
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Receba alertas para não esquecer de registrar seus sinais vitais.
+                </p>
+                <Button
+                  onClick={handleEnableNotifications}
+                  size="sm"
+                  className="mt-3 gap-2"
+                >
+                  <BellRing size={16} />
+                  Ativar notificações
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </section>
+
+      {/* Login Banner (if not logged in) */}
+      {!user && (
+        <section className="px-5 mb-6">
+          <Link to="/auth">
+            <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-foreground">Faça login para sincronizar</p>
+                <p className="text-xs text-muted-foreground">Seus lembretes serão salvos na nuvem</p>
+              </div>
+              <Button size="sm" variant="outline">
+                Entrar
+              </Button>
+            </div>
+          </Link>
+        </section>
+      )}
 
       {/* Reminders List */}
       <section className="px-5">
@@ -120,7 +231,7 @@ const Lembretes = () => {
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <Clock className="text-primary" size={24} />
+                    {getReminderIcon(reminder.reminder_type)}
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-foreground">
@@ -152,7 +263,7 @@ const Lembretes = () => {
                   </button>
                 </div>
               </div>
-              <div className="flex gap-1 mt-3">
+              <div className="flex gap-1 mt-3 flex-wrap">
                 {DAYS.map((day) => (
                   <span
                     key={day}
@@ -186,6 +297,37 @@ const Lembretes = () => {
             </h3>
 
             <div className="space-y-4">
+              {/* Reminder Type */}
+              <div>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">
+                  Tipo
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setReminderType("vital_collection")}
+                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-medium transition-all ${
+                      reminderType === "vital_collection"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    }`}
+                  >
+                    <Activity size={18} />
+                    Coleta
+                  </button>
+                  <button
+                    onClick={() => setReminderType("medication")}
+                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-medium transition-all ${
+                      reminderType === "medication"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    }`}
+                  >
+                    <Pill size={18} />
+                    Medicação
+                  </button>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-2">
                   Horário
@@ -206,7 +348,11 @@ const Lembretes = () => {
                   type="text"
                   value={newLabel}
                   onChange={(e) => setNewLabel(e.target.value)}
-                  placeholder="Ex: Coleta da manhã"
+                  placeholder={
+                    reminderType === "medication"
+                      ? "Ex: Tomar remédio X"
+                      : "Ex: Coleta da manhã"
+                  }
                   className="vital-input"
                 />
               </div>
@@ -240,7 +386,7 @@ const Lembretes = () => {
                   Cancelar
                 </button>
                 <button
-                  onClick={addReminder}
+                  onClick={handleAddReminder}
                   disabled={!newLabel || selectedDays.length === 0}
                   className="flex-1 btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
