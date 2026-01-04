@@ -52,6 +52,11 @@ export const useAuth = () => {
   };
 
   const signOut = async () => {
+    // Clear all sensitive health data from localStorage before signing out
+    localStorage.removeItem('vigidoc_vitals');
+    localStorage.removeItem('vigidoc_profile');
+    localStorage.removeItem('vigidoc_reminders');
+    
     const { error } = await supabase.auth.signOut();
     return { error };
   };
