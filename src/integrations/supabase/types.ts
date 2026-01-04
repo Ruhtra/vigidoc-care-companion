@@ -113,6 +113,66 @@ export type Database = {
         }
         Relationships: []
       }
+      shared_reports: {
+        Row: {
+          created_at: string
+          date_from: string | null
+          date_to: string | null
+          expires_at: string | null
+          id: string
+          include_blood_pressure: boolean
+          include_heart_rate: boolean
+          include_oxygen: boolean
+          include_pain: boolean
+          include_profile: boolean
+          include_temperature: boolean
+          include_weight: boolean
+          is_active: boolean
+          share_code: string
+          title: string
+          user_id: string
+          views_count: number
+        }
+        Insert: {
+          created_at?: string
+          date_from?: string | null
+          date_to?: string | null
+          expires_at?: string | null
+          id?: string
+          include_blood_pressure?: boolean
+          include_heart_rate?: boolean
+          include_oxygen?: boolean
+          include_pain?: boolean
+          include_profile?: boolean
+          include_temperature?: boolean
+          include_weight?: boolean
+          is_active?: boolean
+          share_code: string
+          title?: string
+          user_id: string
+          views_count?: number
+        }
+        Update: {
+          created_at?: string
+          date_from?: string | null
+          date_to?: string | null
+          expires_at?: string | null
+          id?: string
+          include_blood_pressure?: boolean
+          include_heart_rate?: boolean
+          include_oxygen?: boolean
+          include_pain?: boolean
+          include_profile?: boolean
+          include_temperature?: boolean
+          include_weight?: boolean
+          is_active?: boolean
+          share_code?: string
+          title?: string
+          user_id?: string
+          views_count?: number
+        }
+        Relationships: []
+      }
       vital_records: {
         Row: {
           created_at: string

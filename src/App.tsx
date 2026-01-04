@@ -9,6 +9,8 @@ import Lembretes from "./pages/Lembretes";
 import Perfil from "./pages/Perfil";
 import Instalar from "./pages/Instalar";
 import Auth from "./pages/Auth";
+import Compartilhar from "./pages/Compartilhar";
+import Relatorio from "./pages/Relatorio";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +28,8 @@ const App = () => (
           <Route path="/perfil" element={<Perfil />} />
           <Route path="/instalar" element={<Instalar />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/compartilhar" element={<Compartilhar />} />
+          <Route path="/relatorio/:code" element={<Relatorio />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
