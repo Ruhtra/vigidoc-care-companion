@@ -31,7 +31,7 @@ const VigiDocLogo = ({
             VigiDoc
           </span>
           {size !== "sm" && <span className="text-xs text-muted-foreground font-medium">
-              Monitoramento de Saúde
+              Registro e acompanhamento dos seus sinais vitais
             </span>}
         </div>}
     </div>;
