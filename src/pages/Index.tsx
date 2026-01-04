@@ -120,22 +120,19 @@ const Index = () => {
   };
   return <div className="min-h-screen bg-background pb-24">
       {/* Header */}
-      <header className="px-5 pt-6 pb-4">
-        <div className="flex items-center justify-between mb-6">
-          <VigiDocLogo size="md" />
-          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-            <span className="text-primary font-bold text-sm">JM</span>
-          </div>
+      <header className="px-5 pt-8 pb-6">
+        <div className="flex items-center justify-center mb-8">
+          <VigiDocLogo size="lg" />
         </div>
         
-        <div className="animate-fade-in">
+        <div className="animate-fade-in text-center">
           <p className="text-muted-foreground text-sm font-medium capitalize">
             {dateFormatter.format(today)}
           </p>
-          <h1 className="text-2xl font-bold text-foreground mt-1">
+          <h1 className="text-2xl font-bold text-foreground mt-2">
             Olá, João! 👋
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground mt-1">
             Como você está se sentindo hoje?
           </p>
         </div>
