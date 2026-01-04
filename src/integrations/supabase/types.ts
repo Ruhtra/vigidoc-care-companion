@@ -14,7 +14,90 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          birth_date: string | null
+          created_at: string
+          emergency_contact: string | null
+          full_name: string | null
+          id: string
+          medical_notes: string | null
+          phone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          birth_date?: string | null
+          created_at?: string
+          emergency_contact?: string | null
+          full_name?: string | null
+          id?: string
+          medical_notes?: string | null
+          phone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          birth_date?: string | null
+          created_at?: string
+          emergency_contact?: string | null
+          full_name?: string | null
+          id?: string
+          medical_notes?: string | null
+          phone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      vital_records: {
+        Row: {
+          created_at: string
+          diastolic: number | null
+          heart_rate: number | null
+          id: string
+          notes: string | null
+          oxygen_saturation: number | null
+          pain_level: number | null
+          recorded_at: string
+          systolic: number | null
+          temperature: number | null
+          updated_at: string
+          user_id: string
+          weight: number | null
+        }
+        Insert: {
+          created_at?: string
+          diastolic?: number | null
+          heart_rate?: number | null
+          id?: string
+          notes?: string | null
+          oxygen_saturation?: number | null
+          pain_level?: number | null
+          recorded_at?: string
+          systolic?: number | null
+          temperature?: number | null
+          updated_at?: string
+          user_id: string
+          weight?: number | null
+        }
+        Update: {
+          created_at?: string
+          diastolic?: number | null
+          heart_rate?: number | null
+          id?: string
+          notes?: string | null
+          oxygen_saturation?: number | null
+          pain_level?: number | null
+          recorded_at?: string
+          systolic?: number | null
+          temperature?: number | null
+          updated_at?: string
+          user_id?: string
+          weight?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

@@ -1,17 +1,17 @@
 import { useState } from "react";
-import { Download, Calendar, ChevronDown } from "lucide-react";
+import { Download, Calendar } from "lucide-react";
 import VigiDocLogo from "@/components/VigiDocLogo";
 import BottomNav from "@/components/BottomNav";
 import { useVitals } from "@/hooks/useVitals";
 
 const Historico = () => {
-  const { vitals } = useVitals();
+  const { vitals, loading } = useVitals();
   const [filter, setFilter] = useState<"week" | "month" | "all">("week");
 
   const filteredVitals = vitals
     .filter((v) => {
       const now = new Date();
-      const vitalDate = new Date(v.date);
+      const vitalDate = new Date(v.recorded_at);
       if (filter === "week") {
         const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         return vitalDate >= weekAgo;
@@ -22,14 +22,14 @@ const Historico = () => {
       }
       return true;
     })
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    .sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime());
 
-  const formatDate = (date: Date) => {
+  const formatDate = (dateStr: string) => {
     return new Intl.DateTimeFormat("pt-BR", {
       day: "2-digit",
       month: "2-digit",
       year: "2-digit",
-    }).format(new Date(date));
+    }).format(new Date(dateStr));
   };
 
   const exportToCSV = () => {
@@ -45,14 +45,14 @@ const Historico = () => {
     ];
 
     const rows = vitals.map((v) => [
-      formatDate(v.date),
+      formatDate(v.recorded_at),
       v.systolic || "",
       v.diastolic || "",
-      v.heartRate || "",
+      v.heart_rate || "",
       v.temperature || "",
-      v.oxygenSaturation || "",
+      v.oxygen_saturation || "",
       v.weight || "",
-      v.painLevel || "",
+      v.pain_level || "",
     ]);
 
     const csvContent =
@@ -66,6 +66,16 @@ const Historico = () => {
     link.click();
     document.body.removeChild(link);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-pulse-soft">
+          <VigiDocLogo size="lg" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -163,7 +173,7 @@ const Historico = () => {
                       }`}
                     >
                       <td className="px-4 py-3 text-sm font-medium text-foreground whitespace-nowrap">
-                        {formatDate(vital.date)}
+                        {formatDate(vital.recorded_at)}
                       </td>
                       <td className="px-3 py-3 text-sm text-center text-foreground">
                         {vital.systolic && vital.diastolic
@@ -171,19 +181,19 @@ const Historico = () => {
                           : "-"}
                       </td>
                       <td className="px-3 py-3 text-sm text-center text-foreground">
-                        {vital.heartRate || "-"}
+                        {vital.heart_rate || "-"}
                       </td>
                       <td className="px-3 py-3 text-sm text-center text-foreground">
                         {vital.temperature || "-"}
                       </td>
                       <td className="px-3 py-3 text-sm text-center text-foreground">
-                        {vital.oxygenSaturation || "-"}
+                        {vital.oxygen_saturation || "-"}
                       </td>
                       <td className="px-3 py-3 text-sm text-center text-foreground">
                         {vital.weight || "-"}
                       </td>
                       <td className="px-3 py-3 text-sm text-center text-foreground">
-                        {vital.painLevel !== undefined ? vital.painLevel : "-"}
+                        {vital.pain_level !== undefined && vital.pain_level !== null ? vital.pain_level : "-"}
                       </td>
                     </tr>
                   ))}
