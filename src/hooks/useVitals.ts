@@ -25,6 +25,43 @@ export const useVitals = () => {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
 
+  // Aggregate today's vitals from multiple records (most recent value of each type)
+  const aggregateTodayVitals = (records: VitalRecord[]): Partial<VitalRecord> => {
+    const today = new Date().toDateString();
+    const todayRecords = records
+      .filter((v) => new Date(v.recorded_at).toDateString() === today)
+      .sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime());
+
+    if (todayRecords.length === 0) return {};
+
+    // Aggregate: get the most recent non-null value for each vital type
+    const aggregated: Partial<VitalRecord> = {};
+    
+    for (const record of todayRecords) {
+      if (aggregated.systolic === undefined && record.systolic != null) {
+        aggregated.systolic = record.systolic;
+        aggregated.diastolic = record.diastolic;
+      }
+      if (aggregated.heart_rate === undefined && record.heart_rate != null) {
+        aggregated.heart_rate = record.heart_rate;
+      }
+      if (aggregated.temperature === undefined && record.temperature != null) {
+        aggregated.temperature = record.temperature;
+      }
+      if (aggregated.oxygen_saturation === undefined && record.oxygen_saturation != null) {
+        aggregated.oxygen_saturation = record.oxygen_saturation;
+      }
+      if (aggregated.weight === undefined && record.weight != null) {
+        aggregated.weight = record.weight;
+      }
+      if (aggregated.pain_level === undefined && record.pain_level != null) {
+        aggregated.pain_level = record.pain_level;
+      }
+    }
+
+    return aggregated;
+  };
+
   // Load vitals from database or localStorage
   const loadVitals = useCallback(async () => {
     setLoading(true);
@@ -39,15 +76,7 @@ export const useVitals = () => {
 
       if (!error && data) {
         setVitals(data);
-        
-        // Find today's record
-        const today = new Date().toDateString();
-        const todayRecord = data.find(
-          (v) => new Date(v.recorded_at).toDateString() === today
-        );
-        if (todayRecord) {
-          setTodayVitals(todayRecord);
-        }
+        setTodayVitals(aggregateTodayVitals(data));
 
         // Sync local data to cloud if exists
         const localData = localStorage.getItem(STORAGE_KEY);
@@ -62,14 +91,7 @@ export const useVitals = () => {
       if (stored) {
         const parsed = JSON.parse(stored);
         setVitals(parsed);
-        
-        const today = new Date().toDateString();
-        const todayRecord = parsed.find(
-          (v: VitalRecord) => new Date(v.recorded_at).toDateString() === today
-        );
-        if (todayRecord) {
-          setTodayVitals(todayRecord);
-        }
+        setTodayVitals(aggregateTodayVitals(parsed));
       }
     }
     
@@ -160,15 +182,8 @@ export const useVitals = () => {
         const updated = [...prev, newRecord];
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
         
-        // Atualiza todayVitals com o registro mais recente do dia
-        const todayStr = today.toDateString();
-        const todayRecords = updated
-          .filter((v) => new Date(v.recorded_at).toDateString() === todayStr)
-          .sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime());
-        
-        if (todayRecords.length > 0) {
-          setTodayVitals(todayRecords[0]);
-        }
+        // Atualiza todayVitals agregando todos os valores do dia
+        setTodayVitals(aggregateTodayVitals(updated));
 
         return updated;
       });
