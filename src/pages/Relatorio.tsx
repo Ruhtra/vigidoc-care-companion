@@ -12,10 +12,9 @@ import VigiDocLogo from "@/components/VigiDocLogo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 
+// Report data returned by secure function (no user_id exposed)
 interface SharedReport {
   id: string;
-  user_id: string;
-  share_code: string;
   title: string;
   include_blood_pressure: boolean;
   include_heart_rate: boolean;
@@ -26,8 +25,6 @@ interface SharedReport {
   include_profile: boolean;
   date_from: string | null;
   date_to: string | null;
-  expires_at: string | null;
-  is_active: boolean;
   created_at: string;
 }
 
@@ -51,6 +48,13 @@ interface Profile {
   medical_notes: string | null;
 }
 
+interface SharedReportResponse {
+  report: SharedReport;
+  vitals: VitalRecord[] | null;
+  profile: Profile | null;
+  error?: string;
+}
+
 const Relatorio = () => {
   const { code } = useParams<{ code: string }>();
   const [loading, setLoading] = useState(true);
@@ -69,67 +73,35 @@ const Relatorio = () => {
     setLoading(true);
     setError(null);
 
-    // Get report info
-    const { data: reportData, error: reportError } = await supabase
-      .from("shared_reports")
-      .select("*")
-      .eq("share_code", shareCode)
-      .eq("is_active", true)
-      .maybeSingle();
+    // Use secure RPC function that doesn't expose user_id
+    const { data, error: rpcError } = await supabase.rpc('get_shared_report_data', {
+      share_code_param: shareCode
+    });
 
-    if (reportError || !reportData) {
+    if (rpcError) {
+      console.error('Error loading report:', rpcError);
+      setError("Erro ao carregar relatório.");
+      setLoading(false);
+      return;
+    }
+
+    const responseData = data as unknown as SharedReportResponse;
+
+    if (responseData?.error) {
       setError("Relatório não encontrado ou expirado.");
       setLoading(false);
       return;
     }
 
-    // Check expiration
-    if (reportData.expires_at && new Date(reportData.expires_at) < new Date()) {
-      setError("Este link de compartilhamento expirou.");
+    if (!responseData?.report) {
+      setError("Relatório não encontrado ou expirado.");
       setLoading(false);
       return;
     }
 
-    setReport(reportData as SharedReport);
-
-    // Update views count
-    await supabase
-      .from("shared_reports")
-      .update({ views_count: (reportData.views_count || 0) + 1 })
-      .eq("id", reportData.id);
-
-    // Get vitals data
-    let query = supabase
-      .from("vital_records")
-      .select("*")
-      .eq("user_id", reportData.user_id)
-      .order("recorded_at", { ascending: true });
-
-    if (reportData.date_from) {
-      query = query.gte("recorded_at", reportData.date_from);
-    }
-    if (reportData.date_to) {
-      query = query.lte("recorded_at", reportData.date_to + "T23:59:59");
-    }
-
-    const { data: vitalsData } = await query;
-    if (vitalsData) {
-      setVitals(vitalsData);
-    }
-
-    // Get profile if included
-    if (reportData.include_profile) {
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("full_name, birth_date, phone, emergency_contact, medical_notes")
-        .eq("user_id", reportData.user_id)
-        .maybeSingle();
-
-      if (profileData) {
-        setProfile(profileData);
-      }
-    }
-
+    setReport(responseData.report);
+    setVitals(responseData.vitals || []);
+    setProfile(responseData.profile);
     setLoading(false);
   };
 

@@ -226,7 +226,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_shared_report_data: {
+        Args: { share_code_param: string }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
