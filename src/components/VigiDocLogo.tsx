@@ -16,7 +16,7 @@ const VigiDocLogo = ({
   };
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center justify-center gap-3">
       <img 
         src={vigiDocLogo} 
         alt="VigiDoc - Sinais Vitais" 
