@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 
@@ -21,7 +21,6 @@ const STORAGE_KEY = "vigidoc_vitals";
 export const useVitals = () => {
   const { user } = useAuth();
   const [vitals, setVitals] = useState<VitalRecord[]>([]);
-  const [todayVitals, setTodayVitals] = useState<Partial<VitalRecord>>({});
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
 
@@ -36,7 +35,7 @@ export const useVitals = () => {
 
     // Aggregate: get the most recent non-null value for each vital type
     const aggregated: Partial<VitalRecord> = {};
-    
+
     for (const record of todayRecords) {
       if (aggregated.systolic === undefined && record.systolic != null) {
         aggregated.systolic = record.systolic;
@@ -48,7 +47,10 @@ export const useVitals = () => {
       if (aggregated.temperature === undefined && record.temperature != null) {
         aggregated.temperature = record.temperature;
       }
-      if (aggregated.oxygen_saturation === undefined && record.oxygen_saturation != null) {
+      if (
+        aggregated.oxygen_saturation === undefined &&
+        record.oxygen_saturation != null
+      ) {
         aggregated.oxygen_saturation = record.oxygen_saturation;
       }
       if (aggregated.weight === undefined && record.weight != null) {
@@ -61,6 +63,9 @@ export const useVitals = () => {
 
     return aggregated;
   };
+
+  const todayVitals = useMemo(() => aggregateTodayVitals(vitals), [vitals]);
+
 
   // Load vitals from database or localStorage
   const loadVitals = useCallback(async () => {
@@ -76,7 +81,6 @@ export const useVitals = () => {
 
       if (!error && data) {
         setVitals(data);
-        setTodayVitals(aggregateTodayVitals(data));
 
         // Sync local data to cloud if exists
         const localData = localStorage.getItem(STORAGE_KEY);
@@ -91,7 +95,6 @@ export const useVitals = () => {
       if (stored) {
         const parsed = JSON.parse(stored);
         setVitals(parsed);
-        setTodayVitals(aggregateTodayVitals(parsed));
       }
     }
     
@@ -158,16 +161,34 @@ export const useVitals = () => {
 
     if (user) {
       // Sempre cria um novo registro (permite múltiplas medições por dia)
-      const { error } = await supabase.from("vital_records").insert({
-        user_id: user.id,
-        recorded_at: recordedAt.toISOString(),
-        ...insertData
-      });
+      const { data, error } = await supabase
+        .from("vital_records")
+        .insert({
+          user_id: user.id,
+          recorded_at: recordedAt.toISOString(),
+          ...insertData,
+        })
+        .select("*")
+        .single();
 
       if (error) {
         console.error("Error inserting vital:", error);
+        return;
       }
 
+      if (data) {
+        setVitals((prev) => {
+          const merged = [data as VitalRecord, ...prev];
+          merged.sort(
+            (a, b) =>
+              new Date(b.recorded_at).getTime() -
+              new Date(a.recorded_at).getTime()
+          );
+          return merged;
+        });
+      }
+
+      // garante sincronização/consistência com o backend
       loadVitals();
     } else {
       // Save to localStorage (offline mode) - sempre cria novo registro
@@ -182,9 +203,6 @@ export const useVitals = () => {
         const updated = [...prev, newRecord];
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
         
-        // Atualiza todayVitals agregando todos os valores do dia
-        setTodayVitals(aggregateTodayVitals(updated));
-
         return updated;
       });
     }

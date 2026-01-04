@@ -38,13 +38,14 @@ const VitalInputModal = ({
   if (!isOpen) return null;
 
   const handleSave = () => {
-    if (value) {
-      onSave(value, value2, time);
-      setValue("");
-      setValue2("");
-      setTime(format(new Date(), "HH:mm"));
-      onClose();
-    }
+    if (!value) return;
+    if (label2 && !value2) return;
+
+    onSave(value, value2, time);
+    setValue("");
+    setValue2("");
+    setTime(format(new Date(), "HH:mm"));
+    onClose();
   };
 
   const formattedDate = format(now, "EEEE, d 'de' MMMM", { locale: ptBR });
@@ -123,7 +124,7 @@ const VitalInputModal = ({
         
         <button
           onClick={handleSave}
-          disabled={!value}
+          disabled={!value || (Boolean(label2) && !value2)}
           className="btn-primary w-full mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Salvar

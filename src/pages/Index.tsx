@@ -30,11 +30,16 @@ const Index = () => {
   });
 
   const handleSave = (value: string, value2?: string, time?: string) => {
-    if (activeModal === "bloodPressure" && value2) {
-      saveVital("bloodPressure", value, Number(value2), time);
-    } else if (activeModal) {
-      saveVital(activeModal, value, undefined, time);
+    if (!activeModal) return;
+
+    if (activeModal === "bloodPressure") {
+      const diastolicStr = (value2 ?? "").trim();
+      if (!diastolicStr) return;
+      saveVital("bloodPressure", value, Number(diastolicStr), time);
+      return;
     }
+
+    saveVital(activeModal, value, undefined, time);
   };
 
   const vitalCards = [{
