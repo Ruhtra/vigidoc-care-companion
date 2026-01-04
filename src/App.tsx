@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Historico from "./pages/Historico";
 import Lembretes from "./pages/Lembretes";
 import Perfil from "./pages/Perfil";
+import Instalar from "./pages/Instalar";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
           <Route path="/historico" element={<Historico />} />
           <Route path="/lembretes" element={<Lembretes />} />
           <Route path="/perfil" element={<Perfil />} />
+          <Route path="/instalar" element={<Instalar />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
