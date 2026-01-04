@@ -124,7 +124,7 @@ const Index = () => {
         <div className="flex items-center justify-between mb-6">
           <VigiDocLogo size="md" />
           <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-            <span className="font-bold text-sm text-[#0a7199]">JM</span>
+            <span className="text-primary font-bold text-sm">JM</span>
           </div>
         </div>
         
