@@ -1,10 +1,8 @@
 import vigiDocLogo from "@/assets/vigidoc-logo.png";
-
 interface VigiDocLogoProps {
   size?: "sm" | "md" | "lg";
   showText?: boolean;
 }
-
 const VigiDocLogo = ({
   size = "md",
   showText = true
@@ -14,16 +12,8 @@ const VigiDocLogo = ({
     md: "h-14",
     lg: "h-24"
   };
-
-  return (
-    <div className="flex items-center justify-center gap-3">
-      <img 
-        src={vigiDocLogo} 
-        alt="VigiDoc - Sinais Vitais" 
-        className={`${sizeClasses[size]} w-auto object-contain`}
-      />
-    </div>
-  );
+  return <div className="flex items-center justify-center gap-3">
+      
+    </div>;
 };
-
 export default VigiDocLogo;
