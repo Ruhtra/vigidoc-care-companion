@@ -17,7 +17,7 @@ const VitalCard = ({ icon, label, value, unit, status = "normal", onClick }: Vit
   };
 
   const statusDotStyles = {
-    normal: "bg-success",
+    normal: "bg-primary",
     warning: "bg-warning",
     alert: "bg-destructive animate-pulse-soft",
   };
