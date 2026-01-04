@@ -4,6 +4,8 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans&display=swap");
+
 @layer base {
   :root {
     /* VigiDoc Healthcare Theme - Calming & Professional */
@@ -17,12 +19,12 @@
     --popover-foreground: 200 25% 15%;
 
     /* Primary - Calming Teal */
-    --primary: 174 62% 40%;
+    --primary: 197 88% 32%;
     --primary-foreground: 0 0% 100%;
 
     /* Secondary - Soft Blue */
     --secondary: 200 30% 94%;
-    --secondary-foreground: 200 25% 25%;
+    --secondary-foreground: 212 100% 17%;
 
     --muted: 180 15% 95%;
     --muted-foreground: 200 15% 45%;
