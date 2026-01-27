@@ -6,6 +6,7 @@ import VitalInputModal from "@/components/VitalInputModal";
 import BottomNav from "@/components/BottomNav";
 import { useVitals } from "@/hooks/useVitals";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { LogIn, Cloud } from "lucide-react";
@@ -15,12 +16,18 @@ type ModalType = "bloodPressure" | "heartRate" | "temperature" | "oxygenSaturati
 const Index = () => {
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const { user } = useAuth();
+  const { profile } = useProfile();
   const {
     todayVitals,
     saveVital,
     getStatus,
     syncing
   } = useVitals();
+
+  const getFirstName = () => {
+    if (!profile?.full_name) return null;
+    return profile.full_name.trim().split(" ")[0];
+  };
   
   const today = new Date();
   const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
@@ -160,7 +167,7 @@ const Index = () => {
             {dateFormatter.format(today)}
           </p>
           <h1 className="text-2xl font-bold text-foreground mt-2">
-            {user ? `Olá!` : "Bem-vindo!"}
+            {user ? (getFirstName() ? `Olá, ${getFirstName()}!` : "Olá!") : "Bem-vindo!"}
           </h1>
           <p className="text-muted-foreground mt-1 text-xl font-semibold">Registre seus sinais vitais</p>
         </div>
