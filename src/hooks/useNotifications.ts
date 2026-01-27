@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useNotificationSound } from "./useNotificationSound";
 
 export const useNotifications = () => {
   const [permission, setPermission] = useState<NotificationPermission>("default");
   const [isSupported, setIsSupported] = useState(false);
   const [swRegistration, setSwRegistration] = useState<ServiceWorkerRegistration | null>(null);
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const scheduledTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const { playNotificationSound } = useNotificationSound();
 
   useEffect(() => {
     // Check if notifications are supported
@@ -105,14 +108,22 @@ export const useNotifications = () => {
             tag: `vigidoc-${Date.now()}`,
             ...options,
           });
+          // Play sound when notification is shown
+          if (soundEnabled) {
+            playNotificationSound();
+          }
           console.log("[Notifications] Notificação exibida via SW:", title);
           return true;
         } else {
           // Fallback to regular notification
-          const notification = new Notification(title, {
+          new Notification(title, {
             icon: "/icon-192.png",
             ...options,
           });
+          // Play sound when notification is shown
+          if (soundEnabled) {
+            playNotificationSound();
+          }
           console.log("[Notifications] Notificação exibida via API:", title);
           return true;
         }
@@ -133,7 +144,7 @@ export const useNotifications = () => {
         }
       }
     },
-    [isSupported, permission, swRegistration]
+    [isSupported, permission, swRegistration, soundEnabled, playNotificationSound]
   );
 
   const scheduleLocalNotification = useCallback(
@@ -188,14 +199,21 @@ export const useNotifications = () => {
     console.log("[Notifications] Todas as notificações agendadas foram canceladas");
   }, []);
 
+  const toggleSound = useCallback((enabled: boolean) => {
+    setSoundEnabled(enabled);
+    console.log("[Notifications] Som", enabled ? "ativado" : "desativado");
+  }, []);
+
   return {
     permission,
     isSupported,
     swRegistration,
+    soundEnabled,
     requestPermission,
     showNotification,
     scheduleLocalNotification,
     cancelScheduledNotification,
     cancelAllScheduledNotifications,
+    toggleSound,
   };
 };
