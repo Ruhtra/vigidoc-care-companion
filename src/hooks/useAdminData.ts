@@ -30,7 +30,11 @@ interface AdminDataResult {
   isLoading: boolean;
   error: string | null;
   isAdmin: boolean;
-  refetch: (dateFrom?: string, dateTo?: string, userId?: string) => Promise<void>;
+  refetch: (
+    dateFrom?: string,
+    dateTo?: string,
+    userId?: string
+  ) => Promise<void>;
 }
 
 export const useAdminData = (): AdminDataResult => {
@@ -42,21 +46,25 @@ export const useAdminData = (): AdminDataResult => {
 
   const checkAdminStatus = async () => {
     if (!user) return false;
-    
-    const { data, error } = await supabase.rpc('has_role', {
+
+    const { data, error } = await supabase.rpc("has_role", {
       _user_id: user.id,
-      _role: 'admin'
+      _role: "admin",
     });
-    
+
     if (error) {
-      console.error('Error checking admin status:', error);
+      console.error("Error checking admin status:", error);
       return false;
     }
-    
+
     return data === true;
   };
 
-  const fetchData = async (dateFrom?: string, dateTo?: string, userId?: string) => {
+  const fetchData = async (
+    dateFrom?: string,
+    dateTo?: string,
+    userId?: string
+  ) => {
     if (!user) {
       setIsLoading(false);
       return;
@@ -75,24 +83,27 @@ export const useAdminData = (): AdminDataResult => {
         return;
       }
 
-      const { data, error: rpcError } = await supabase.rpc('get_admin_patients_data', {
-        date_from_param: dateFrom || null,
-        date_to_param: dateTo || null,
-        user_id_param: userId || null
-      });
+      const { data, error: rpcError } = await supabase.rpc(
+        "get_admin_patients_data",
+        {
+          date_from_param: dateFrom || null,
+          date_to_param: dateTo || null,
+          user_id_param: userId || null,
+        }
+      );
 
       if (rpcError) {
         throw rpcError;
       }
 
-      if (data && typeof data === 'object' && 'error' in (data as object)) {
+      if (data && typeof data === "object" && "error" in (data as object)) {
         setError((data as { error: string }).error);
         setPatients([]);
       } else {
         setPatients((data as unknown as PatientData[]) || []);
       }
     } catch (err) {
-      console.error('Error fetching admin data:', err);
+      console.error("Error fetching admin data:", err);
       setError("Erro ao carregar dados dos pacientes");
     } finally {
       setIsLoading(false);
@@ -108,6 +119,6 @@ export const useAdminData = (): AdminDataResult => {
     isLoading,
     error,
     isAdmin,
-    refetch: fetchData
+    refetch: fetchData,
   };
 };
