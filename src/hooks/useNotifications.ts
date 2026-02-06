@@ -1,203 +1,301 @@
+"use client";
+
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useNotificationSound } from "./useNotificationSound";
+
+interface Reminder {
+  id: string;
+  time: string;
+  label: string;
+  days: string[];
+  enabled: boolean;
+  reminder_type: string;
+  lastFired?: string;
+}
 
 export const useNotifications = () => {
-  const [permission, setPermission] = useState<NotificationPermission>("default");
+  const [permission, setPermission] =
+    useState<NotificationPermission>("default");
   const [isSupported, setIsSupported] = useState(false);
-  const [swRegistration, setSwRegistration] = useState<ServiceWorkerRegistration | null>(null);
+  const [swRegistration, setSwRegistration] =
+    useState<ServiceWorkerRegistration | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const scheduledTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
-  const { playNotificationSound } = useNotificationSound();
+  const keepAliveRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const visibilityRef = useRef<(() => void) | null>(null);
 
+  // Register the SW and start keep-alive ping
   useEffect(() => {
-    // Check if notifications are supported
     const supported = "Notification" in window && "serviceWorker" in navigator;
     setIsSupported(supported);
-    
+
     if (supported) {
       setPermission(Notification.permission);
-      
-      // Register custom service worker for notifications
       registerServiceWorker();
     }
-    
+
     return () => {
-      // Clear all scheduled timeouts on unmount
-      scheduledTimeouts.current.forEach((timeout) => clearTimeout(timeout));
-      scheduledTimeouts.current.clear();
+      if (keepAliveRef.current) clearInterval(keepAliveRef.current);
+      if (visibilityRef.current) {
+        document.removeEventListener("visibilitychange", visibilityRef.current);
+      }
     };
   }, []);
 
-  const registerServiceWorker = async () => {
-    try {
-      // First check if there's an existing SW registration
-      const existingReg = await navigator.serviceWorker.getRegistration();
-      if (existingReg) {
-        console.log("[Notifications] Service Worker já registrado:", existingReg.scope);
-        setSwRegistration(existingReg);
-        return existingReg;
-      }
+  const registerServiceWorker =
+    async (): Promise<ServiceWorkerRegistration | null> => {
+      try {
+        // Always register (the browser will use the existing one if unchanged)
+        const registration = await navigator.serviceWorker.register(
+          "/sw-custom.js",
+          { scope: "/" }
+        );
 
-      // Register the custom service worker
-      const registration = await navigator.serviceWorker.register("/sw-custom.js", {
-        scope: "/"
-      });
-      
-      console.log("[Notifications] Service Worker registrado com sucesso:", registration.scope);
-      setSwRegistration(registration);
-      
-      // Wait for the service worker to be ready
-      await navigator.serviceWorker.ready;
-      console.log("[Notifications] Service Worker pronto");
-      
-      return registration;
-    } catch (error) {
-      console.error("[Notifications] Erro ao registrar Service Worker:", error);
-      return null;
-    }
+        console.log(
+          "[Notifications] Service Worker registrado:",
+          registration.scope
+        );
+
+        // Wait for the SW to become active
+        if (registration.installing) {
+          await new Promise<void>((resolve) => {
+            const sw = registration.installing!;
+            sw.addEventListener("statechange", () => {
+              if (sw.state === "activated") resolve();
+            });
+          });
+        } else if (registration.waiting) {
+          // There's a waiting worker, tell it to activate
+          registration.waiting.postMessage({ type: "SKIP_WAITING" });
+          await new Promise<void>((resolve) => {
+            const sw = registration.waiting!;
+            sw.addEventListener("statechange", () => {
+              if (sw.state === "activated") resolve();
+            });
+          });
+        }
+
+        await navigator.serviceWorker.ready;
+        setSwRegistration(registration);
+        console.log("[Notifications] Service Worker pronto");
+
+        // Start keep-alive ping to prevent SW from going idle
+        startKeepAlive();
+
+        // Try to register periodic background sync (Chrome 80+)
+        try {
+          const periodicSyncStatus = await navigator.permissions.query({
+            // @ts-expect-error - periodicSync is not yet widely typed
+            name: "periodic-background-sync",
+          });
+          if (periodicSyncStatus.state === "granted") {
+            // @ts-expect-error - periodicSync is not yet widely typed
+            await registration.periodicSync.register("check-reminders", {
+              minInterval: 60 * 1000, // 1 minute minimum
+            });
+            console.log("[Notifications] Periodic background sync registrado");
+          }
+        } catch {
+          console.log("[Notifications] Periodic background sync nao suportado");
+        }
+
+        return registration;
+      } catch (error) {
+        console.error(
+          "[Notifications] Erro ao registrar Service Worker:",
+          error
+        );
+        return null;
+      }
+    };
+
+  // Ping the SW periodically to keep it alive and checking reminders
+  const startKeepAlive = () => {
+    if (keepAliveRef.current) clearInterval(keepAliveRef.current);
+
+    const ping = () => {
+      navigator.serviceWorker.controller?.postMessage({ type: "PING" });
+    };
+
+    // Ping every 20 seconds while the page is open
+    keepAliveRef.current = setInterval(ping, 20_000);
+    ping(); // Immediate first ping
+
+    // Also ping when the tab becomes visible again
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        ping();
+      }
+    };
+    visibilityRef.current = handleVisibility;
+    document.addEventListener("visibilitychange", handleVisibility);
   };
+
+  const sendMessageToSW = useCallback(
+    (type: string, payload?: unknown): Promise<unknown> => {
+      return new Promise((resolve, reject) => {
+        if (!navigator.serviceWorker.controller) {
+          // SW might not be controlling the page yet
+          navigator.serviceWorker.ready.then((reg) => {
+            const sw = reg.active;
+            if (sw) {
+              const channel = new MessageChannel();
+              channel.port1.onmessage = (e) => resolve(e.data);
+              sw.postMessage({ type, payload }, [channel.port2]);
+            } else {
+              reject(new Error("No active service worker"));
+            }
+          });
+          return;
+        }
+
+        const channel = new MessageChannel();
+        channel.port1.onmessage = (e) => resolve(e.data);
+        navigator.serviceWorker.controller.postMessage({ type, payload }, [
+          channel.port2,
+        ]);
+
+        // Timeout after 5 seconds
+        setTimeout(() => resolve({ success: true, timeout: true }), 5000);
+      });
+    },
+    []
+  );
 
   const requestPermission = useCallback(async (): Promise<boolean> => {
     if (!isSupported) {
-      console.log("[Notifications] Notificações não suportadas");
+      console.log("[Notifications] Notificacoes nao suportadas");
       return false;
     }
 
     try {
       const result = await Notification.requestPermission();
-      console.log("[Notifications] Permissão solicitada, resultado:", result);
+      console.log("[Notifications] Permissao solicitada, resultado:", result);
       setPermission(result);
-      
+
       if (result === "granted") {
-        // Ensure SW is registered after permission granted
         await registerServiceWorker();
       }
-      
+
       return result === "granted";
     } catch (error) {
-      console.error("[Notifications] Erro ao solicitar permissão:", error);
+      console.error("[Notifications] Erro ao solicitar permissao:", error);
       return false;
     }
   }, [isSupported]);
 
   const showNotification = useCallback(
     async (title: string, options?: NotificationOptions) => {
-      if (!isSupported) {
-        console.log("[Notifications] Notificações não suportadas");
-        return false;
-      }
-      
-      if (permission !== "granted") {
-        console.log("[Notifications] Permissão não concedida:", permission);
-        return false;
-      }
+      if (!isSupported || permission !== "granted") return false;
 
       try {
-        // Try to use service worker for better PWA support
         let registration = swRegistration;
-        
         if (!registration) {
           registration = await navigator.serviceWorker.ready;
         }
-        
+
         if (registration) {
           await registration.showNotification(title, {
             icon: "/icon-192.png",
             badge: "/icon-192.png",
+            // vibrate: [200, 100, 200],
             requireInteraction: false,
             tag: `vigidoc-${Date.now()}`,
             ...options,
           });
-          // Play sound when notification is shown
-          if (soundEnabled) {
-            playNotificationSound();
-          }
-          console.log("[Notifications] Notificação exibida via SW:", title);
-          return true;
-        } else {
-          // Fallback to regular notification
-          new Notification(title, {
-            icon: "/icon-192.png",
-            ...options,
-          });
-          // Play sound when notification is shown
-          if (soundEnabled) {
-            playNotificationSound();
-          }
-          console.log("[Notifications] Notificação exibida via API:", title);
+          console.log("[Notifications] Notificacao exibida via SW:", title);
           return true;
         }
+
+        // Fallback
+        new Notification(title, { icon: "/icon-192.png", ...options });
+        return true;
       } catch (error) {
-        console.error("[Notifications] Erro ao exibir notificação:", error);
-        
-        // Last resort fallback
+        console.error("[Notifications] Erro ao exibir notificacao:", error);
         try {
-          new Notification(title, {
-            icon: "/icon-192.png",
-            ...options,
-          });
-          console.log("[Notifications] Fallback - Notificação exibida:", title);
+          new Notification(title, { icon: "/icon-192.png", ...options });
           return true;
-        } catch (fallbackError) {
-          console.error("[Notifications] Fallback também falhou:", fallbackError);
+        } catch {
           return false;
         }
       }
     },
-    [isSupported, permission, swRegistration, soundEnabled, playNotificationSound]
+    [isSupported, permission, swRegistration]
   );
 
-  const scheduleLocalNotification = useCallback(
-    (title: string, body: string, scheduledTime: Date, id?: string) => {
-      const now = new Date();
-      const delay = scheduledTime.getTime() - now.getTime();
-
-      if (delay <= 0) {
-        console.log("[Notifications] Horário agendado já passou:", scheduledTime);
-        return null;
+  /**
+   * Sync all reminders to the Service Worker's IndexedDB.
+   * The SW will independently check and fire them even when the app is closed.
+   */
+  const syncRemindersToSW = useCallback(
+    async (reminders: Reminder[]) => {
+      try {
+        const result = await sendMessageToSW("SYNC_REMINDERS", reminders);
+        console.log("[Notifications] Lembretes sincronizados com SW:", result);
+        return true;
+      } catch (error) {
+        console.error("[Notifications] Erro ao sincronizar com SW:", error);
+        return false;
       }
-
-      const notificationId = id || `notification-${Date.now()}`;
-      
-      // Clear existing timeout for this ID if exists
-      const existingTimeout = scheduledTimeouts.current.get(notificationId);
-      if (existingTimeout) {
-        clearTimeout(existingTimeout);
-      }
-
-      console.log(`[Notifications] Agendando notificação "${title}" para daqui ${Math.round(delay / 1000 / 60)} minutos`);
-
-      const timeoutId = setTimeout(() => {
-        showNotification(title, { 
-          body,
-          tag: notificationId,
-          requireInteraction: true,
-        });
-        scheduledTimeouts.current.delete(notificationId);
-      }, delay);
-
-      scheduledTimeouts.current.set(notificationId, timeoutId);
-      return timeoutId;
     },
-    [showNotification]
+    [sendMessageToSW]
   );
 
-  const cancelScheduledNotification = useCallback((id: string) => {
-    const timeout = scheduledTimeouts.current.get(id);
-    if (timeout) {
-      clearTimeout(timeout);
-      scheduledTimeouts.current.delete(id);
-      console.log("[Notifications] Notificação cancelada:", id);
-      return true;
-    }
-    return false;
-  }, []);
+  const addReminderToSW = useCallback(
+    async (reminder: Reminder) => {
+      try {
+        await sendMessageToSW("ADD_REMINDER", reminder);
+        console.log(
+          "[Notifications] Lembrete adicionado no SW:",
+          reminder.label
+        );
+        return true;
+      } catch (error) {
+        console.error("[Notifications] Erro ao adicionar no SW:", error);
+        return false;
+      }
+    },
+    [sendMessageToSW]
+  );
 
-  const cancelAllScheduledNotifications = useCallback(() => {
-    scheduledTimeouts.current.forEach((timeout) => clearTimeout(timeout));
-    scheduledTimeouts.current.clear();
-    console.log("[Notifications] Todas as notificações agendadas foram canceladas");
-  }, []);
+  const deleteReminderFromSW = useCallback(
+    async (id: string) => {
+      try {
+        await sendMessageToSW("DELETE_REMINDER", { id });
+        console.log("[Notifications] Lembrete removido do SW:", id);
+        return true;
+      } catch (error) {
+        console.error("[Notifications] Erro ao remover do SW:", error);
+        return false;
+      }
+    },
+    [sendMessageToSW]
+  );
+
+  const updateReminderInSW = useCallback(
+    async (reminder: Reminder) => {
+      try {
+        await sendMessageToSW("UPDATE_REMINDER", reminder);
+        console.log("[Notifications] Lembrete atualizado no SW:", reminder.id);
+        return true;
+      } catch (error) {
+        console.error("[Notifications] Erro ao atualizar no SW:", error);
+        return false;
+      }
+    },
+    [sendMessageToSW]
+  );
+
+  const testNotification = useCallback(async () => {
+    try {
+      await sendMessageToSW("TEST_NOTIFICATION", {
+        body: "Notificacoes funcionando corretamente!",
+      });
+      return true;
+    } catch {
+      return showNotification("VigiDoc - Teste", {
+        body: "Notificacoes funcionando corretamente!",
+      });
+    }
+  }, [sendMessageToSW, showNotification]);
 
   const toggleSound = useCallback((enabled: boolean) => {
     setSoundEnabled(enabled);
@@ -211,9 +309,11 @@ export const useNotifications = () => {
     soundEnabled,
     requestPermission,
     showNotification,
-    scheduleLocalNotification,
-    cancelScheduledNotification,
-    cancelAllScheduledNotifications,
+    syncRemindersToSW,
+    addReminderToSW,
+    deleteReminderFromSW,
+    updateReminderInSW,
+    testNotification,
     toggleSound,
   };
 };

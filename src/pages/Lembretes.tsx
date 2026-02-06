@@ -1,5 +1,16 @@
+"use client";
+
 import { useState, useEffect, useRef } from "react";
-import { Bell, Plus, Clock, Trash2, Check, BellRing, BellOff, Pill, Activity } from "lucide-react";
+import {
+  Bell,
+  Plus,
+  Trash2,
+  Check,
+  BellRing,
+  BellOff,
+  Pill,
+  Activity,
+} from "lucide-react";
 import VigiDocLogo from "@/components/VigiDocLogo";
 import BottomNav from "@/components/BottomNav";
 import { useReminders } from "@/hooks/useReminders";
@@ -9,72 +20,74 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
 
-const DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+const DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
 
 const Lembretes = () => {
   const { user } = useAuth();
-  const { reminders, loading, addReminder, toggleReminder, deleteReminder } = useReminders();
-  const { permission, isSupported, requestPermission, showNotification, scheduleLocalNotification } = useNotifications();
+  const { reminders, loading, addReminder, toggleReminder, deleteReminder } =
+    useReminders();
+  const {
+    permission,
+    isSupported,
+    requestPermission,
+    showNotification,
+    syncRemindersToSW,
+    addReminderToSW,
+    deleteReminderFromSW,
+    updateReminderInSW,
+    testNotification,
+  } = useNotifications();
   const { toast } = useToast();
-  const scheduledNotificationsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const hasSyncedRef = useRef(false);
 
   const [showNewReminder, setShowNewReminder] = useState(false);
   const [newTime, setNewTime] = useState("09:00");
   const [newLabel, setNewLabel] = useState("");
   const [selectedDays, setSelectedDays] = useState<string[]>(DAYS);
-  const [reminderType, setReminderType] = useState<"vital_collection" | "medication">("vital_collection");
+  const [reminderType, setReminderType] = useState<
+    "vital_collection" | "medication"
+  >("vital_collection");
 
-  // Schedule notifications for enabled reminders
+  // Sync ALL reminders to the Service Worker whenever reminders change
+  // This is the core change: the SW stores them in IndexedDB and checks
+  // independently, even when the app/tab/browser is closed.
   useEffect(() => {
     if (permission !== "granted") return;
+    if (!reminders || reminders.length === 0) {
+      // Still sync empty array to clear SW's IndexedDB
+      if (hasSyncedRef.current) {
+        syncRemindersToSW([]);
+      }
+      return;
+    }
 
-    // Clear existing scheduled notifications
-    scheduledNotificationsRef.current.forEach((timeout) => clearTimeout(timeout));
-    scheduledNotificationsRef.current.clear();
+    // Sync reminders to SW
+    syncRemindersToSW(reminders);
+    hasSyncedRef.current = true;
 
-    const now = new Date();
-    const dayNames = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-    const currentDay = dayNames[now.getDay()];
-
-    reminders
-      .filter((r) => r.enabled && r.days.includes(currentDay))
-      .forEach((reminder) => {
-        const [hours, minutes] = reminder.time.split(":").map(Number);
-        const scheduledTime = new Date();
-        scheduledTime.setHours(hours, minutes, 0, 0);
-
-        if (scheduledTime > now) {
-          const timeoutId = scheduleLocalNotification(
-            "VigiDoc - Lembrete",
-            reminder.label,
-            scheduledTime
-          );
-          if (timeoutId) {
-            scheduledNotificationsRef.current.set(reminder.id, timeoutId);
-          }
-        }
-      });
-
-    return () => {
-      scheduledNotificationsRef.current.forEach((timeout) => clearTimeout(timeout));
-    };
-  }, [reminders, permission, scheduleLocalNotification]);
+    console.log(
+      `[Lembretes] ${reminders.length} lembretes sincronizados com o Service Worker`
+    );
+  }, [reminders, permission, syncRemindersToSW]);
 
   const handleEnableNotifications = async () => {
     const granted = await requestPermission();
     if (granted) {
       toast({
-        title: "Notificações ativadas!",
-        description: "Você receberá alertas nos horários configurados.",
+        title: "Notificacoes ativadas!",
+        description: "Voce recebera alertas nos horarios configurados.",
       });
-      // Test notification
-      showNotification("VigiDoc", {
-        body: "Notificações ativadas com sucesso! 🎉",
-      });
+      // Send a test notification to confirm it works
+      await testNotification();
+
+      // Sync existing reminders now that we have permission
+      if (reminders.length > 0) {
+        await syncRemindersToSW(reminders);
+      }
     } else {
       toast({
-        title: "Permissão negada",
-        description: "Ative as notificações nas configurações do navegador.",
+        title: "Permissao negada",
+        description: "Ative as notificacoes nas configuracoes do navegador.",
         variant: "destructive",
       });
     }
@@ -83,19 +96,36 @@ const Lembretes = () => {
   const handleAddReminder = async () => {
     if (!newLabel || selectedDays.length === 0) return;
 
-    const success = await addReminder(newTime, newLabel, selectedDays, reminderType);
-    
+    const success = await addReminder(
+      newTime,
+      newLabel,
+      selectedDays,
+      reminderType
+    );
+
     if (success) {
       toast({
         title: "Lembrete criado!",
-        description: `${newLabel} às ${newTime}`,
+        description: `${newLabel} as ${newTime}`,
       });
       setNewLabel("");
       setNewTime("09:00");
       setSelectedDays(DAYS);
       setReminderType("vital_collection");
       setShowNewReminder(false);
+      // Note: The useEffect above will auto-sync when `reminders` updates
     }
+  };
+
+  const handleToggleReminder = async (id: string) => {
+    await toggleReminder(id);
+    // The useEffect will re-sync when reminders state updates
+  };
+
+  const handleDeleteReminder = async (id: string) => {
+    // Also remove from SW immediately
+    await deleteReminderFromSW(id);
+    await deleteReminder(id);
   };
 
   const toggleDay = (day: string) => {
@@ -134,7 +164,7 @@ const Lembretes = () => {
 
         <h1 className="text-2xl font-bold text-foreground">Lembretes</h1>
         <p className="text-muted-foreground mt-1">
-          Configure seus horários de coleta e medicação
+          Configure seus horarios de coleta e medicacao
         </p>
       </header>
 
@@ -142,13 +172,17 @@ const Lembretes = () => {
       <section className="px-5 mb-6">
         {!isSupported ? (
           <div className="bg-muted rounded-2xl p-4 flex items-start gap-3">
-            <BellOff className="text-muted-foreground flex-shrink-0 mt-0.5" size={20} />
+            <BellOff
+              className="text-muted-foreground flex-shrink-0 mt-0.5"
+              size={20}
+            />
             <div>
               <p className="text-sm text-foreground font-medium">
-                Notificações não suportadas
+                Notificacoes nao suportadas
               </p>
               <p className="text-sm text-muted-foreground mt-1">
-                Seu navegador não suporta notificações push. Tente usar o Chrome ou Safari.
+                Seu navegador nao suporta notificacoes push. Tente usar o Chrome
+                ou Safari.
               </p>
             </div>
           </div>
@@ -157,22 +191,27 @@ const Lembretes = () => {
             <BellRing className="text-success flex-shrink-0 mt-0.5" size={20} />
             <div>
               <p className="text-sm text-foreground font-medium">
-                Notificações ativadas
+                Notificacoes ativadas
               </p>
               <p className="text-sm text-muted-foreground mt-1">
-                Você receberá alertas nos horários configurados.
+                Voce recebera alertas nos horarios configurados, mesmo com o app
+                fechado.
               </p>
             </div>
           </div>
         ) : permission === "denied" ? (
           <div className="bg-destructive/10 border border-destructive/20 rounded-2xl p-4 flex items-start gap-3">
-            <BellOff className="text-destructive flex-shrink-0 mt-0.5" size={20} />
+            <BellOff
+              className="text-destructive flex-shrink-0 mt-0.5"
+              size={20}
+            />
             <div>
               <p className="text-sm text-foreground font-medium">
-                Notificações bloqueadas
+                Notificacoes bloqueadas
               </p>
               <p className="text-sm text-muted-foreground mt-1">
-                Para receber alertas, ative as notificações nas configurações do seu navegador.
+                Para receber alertas, ative as notificacoes nas configuracoes do
+                seu navegador.
               </p>
             </div>
           </div>
@@ -181,11 +220,12 @@ const Lembretes = () => {
             <div className="flex items-start gap-3">
               <Bell className="text-primary flex-shrink-0 mt-0.5" size={20} />
               <div className="flex-1">
-                <p className="text-sm text-foreground font-medium">
-                  Ativar notificações
+                <p className="text-sm font-medium text-foreground">
+                  Ativar notificacoes
                 </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Receba alertas para não esquecer de registrar seus sinais vitais.
+                <p className="text-xs text-muted-foreground">
+                  Receba alertas para nao esquecer de registrar seus sinais
+                  vitais.
                 </p>
                 <Button
                   onClick={handleEnableNotifications}
@@ -193,7 +233,7 @@ const Lembretes = () => {
                   className="mt-3 gap-2"
                 >
                   <BellRing size={16} />
-                  Ativar notificações
+                  Ativar notificacoes
                 </Button>
               </div>
             </div>
@@ -207,8 +247,12 @@ const Lembretes = () => {
           <Link to="/auth">
             <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-foreground">Faça login para sincronizar</p>
-                <p className="text-xs text-muted-foreground">Seus lembretes serão salvos na nuvem</p>
+                <p className="text-sm font-medium text-foreground">
+                  Faca login para sincronizar
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Seus lembretes serao salvos na nuvem
+                </p>
               </div>
               <Button size="sm" variant="outline">
                 Entrar
@@ -244,7 +288,7 @@ const Lembretes = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => toggleReminder(reminder.id)}
+                    onClick={() => handleToggleReminder(reminder.id)}
                     className={`w-12 h-7 rounded-full transition-all ${
                       reminder.enabled ? "bg-primary" : "bg-muted"
                     }`}
@@ -256,7 +300,7 @@ const Lembretes = () => {
                     />
                   </button>
                   <button
-                    onClick={() => deleteReminder(reminder.id)}
+                    onClick={() => handleDeleteReminder(reminder.id)}
                     className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
                   >
                     <Trash2 size={18} />
@@ -323,14 +367,14 @@ const Lembretes = () => {
                     }`}
                   >
                     <Pill size={18} />
-                    Medicação
+                    Medicacao
                   </button>
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-2">
-                  Horário
+                  Horario
                 </label>
                 <input
                   type="time"
@@ -342,7 +386,7 @@ const Lembretes = () => {
 
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-2">
-                  Descrição
+                  Descricao
                 </label>
                 <input
                   type="text"
@@ -350,8 +394,8 @@ const Lembretes = () => {
                   onChange={(e) => setNewLabel(e.target.value)}
                   placeholder={
                     reminderType === "medication"
-                      ? "Ex: Tomar remédio X"
-                      : "Ex: Coleta da manhã"
+                      ? "Ex: Tomar remedio X"
+                      : "Ex: Coleta da manha"
                   }
                   className="vital-input"
                 />
