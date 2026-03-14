@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Heart, Thermometer, Wind, Scale, Activity, Gauge } from "lucide-react";
 import VigiDocLogo from "@/components/VigiDocLogo";
 import VitalCard from "@/components/VitalCard";
@@ -9,25 +9,48 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { LogIn, Cloud } from "lucide-react";
+import { LogIn, Cloud, Loader2 } from "lucide-react";
+import { useDashboard } from "@/hooks/useDashboard";
+import { aggregateTodayVitals } from "@/hooks/useVitals";
 
 type ModalType = "bloodPressure" | "heartRate" | "temperature" | "oxygenSaturation" | "weight" | "painLevel" | null;
 
 const Index = () => {
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const { user } = useAuth();
-  const { profile } = useProfile();
+  const { data: dashboardData, isLoading: dashboardLoading } = useDashboard();
+  const { profile: profileFromHook } = useProfile();
   const {
-    todayVitals,
+    todayVitals: todayVitalsFromHook,
     saveVital,
     getStatus,
     syncing
   } = useVitals();
 
-  const getFirstName = () => {
-    if (!profile?.full_name) return null;
-    return profile.full_name.trim().split(" ")[0];
-  };
+  const profile = dashboardData?.profile || profileFromHook;
+  
+  // Use todayVitals from dashboard if available, otherwise fallback to hook
+  const todayVitals = useMemo(() => {
+    if (dashboardData?.vitals) {
+      return aggregateTodayVitals(dashboardData.vitals.map((v: any) => ({
+        id: v.id,
+        user_id: v.userId,
+        recorded_at: v.recordedAt,
+        systolic: v.systolic,
+        diastolic: v.diastolic,
+        heart_rate: v.heartRate,
+        temperature: v.temperature,
+        oxygen_saturation: v.oxygenSaturation,
+        weight: v.weight,
+        pain_level: v.painLevel,
+        notes: v.notes
+      })));
+    }
+    return todayVitalsFromHook;
+  }, [dashboardData, todayVitalsFromHook]);
+
+  const firstName = profile?.full_name ? profile.full_name.trim().split(" ")[0] : null;
+
   
   const today = new Date();
   const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
@@ -167,9 +190,16 @@ const Index = () => {
             {dateFormatter.format(today)}
           </p>
           <h1 className="text-2xl font-bold text-foreground mt-2">
-            {user ? (getFirstName() ? `Olá, ${getFirstName()}!` : "Olá!") : "Bem-vindo!"}
+            {user ? (firstName ? `Olá, ${firstName}!` : "Olá!") : "Bem-vindo!"}
           </h1>
           <p className="text-muted-foreground mt-1 text-xl font-semibold">Registre seus sinais vitais</p>
+          
+          {dashboardLoading && (
+            <div className="flex items-center justify-center mt-2 gap-2 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="text-xs">Otimizando carregamento...</span>
+            </div>
+          )}
         </div>
 
         {/* Sync Status / Login Banner */}

@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 
 interface VitalRecord {
@@ -44,20 +43,10 @@ export const useAdminData = (): AdminDataResult => {
   const [error, setError] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  const checkAdminStatus = async () => {
+  const checkAdminStatus = () => {
     if (!user) return false;
-
-    const { data, error } = await supabase.rpc("has_role", {
-      _user_id: user.id,
-      _role: "admin",
-    });
-
-    if (error) {
-      console.error("Error checking admin status:", error);
-      return false;
-    }
-
-    return data === true;
+    // @ts-ignore
+    return user.role === "admin";
   };
 
   const fetchData = async (
@@ -74,7 +63,7 @@ export const useAdminData = (): AdminDataResult => {
     setError(null);
 
     try {
-      const adminStatus = await checkAdminStatus();
+      const adminStatus = checkAdminStatus();
       setIsAdmin(adminStatus);
 
       if (!adminStatus) {
@@ -83,24 +72,23 @@ export const useAdminData = (): AdminDataResult => {
         return;
       }
 
-      const { data, error: rpcError } = await supabase.rpc(
-        "get_admin_patients_data",
-        {
-          date_from_param: dateFrom || null,
-          date_to_param: dateTo || null,
-          user_id_param: userId || null,
-        }
-      );
+      const params = new URLSearchParams();
+      if (dateFrom) params.append("dateFrom", dateFrom);
+      if (dateTo) params.append("dateTo", dateTo);
+      if (userId) params.append("userId", userId);
 
-      if (rpcError) {
-        throw rpcError;
-      }
-
-      if (data && typeof data === "object" && "error" in (data as object)) {
-        setError((data as { error: string }).error);
-        setPatients([]);
+      const response = await fetch(`/api/admin/patients?${params.toString()}`);
+      if (!response.ok) {
+         if (response.status === 403) {
+            setError("Você não tem permissão para acessar esta página");
+         } else {
+             const errData = await response.json();
+             setError(errData.error || "Erro ao carregar dados dos pacientes");
+         }
+         setPatients([]);
       } else {
-        setPatients((data as unknown as PatientData[]) || []);
+         const data = await response.json();
+         setPatients(data || []);
       }
     } catch (err) {
       console.error("Error fetching admin data:", err);
@@ -111,7 +99,9 @@ export const useAdminData = (): AdminDataResult => {
   };
 
   useEffect(() => {
-    fetchData();
+    if (user) {
+      fetchData();
+    }
   }, [user]);
 
   return {

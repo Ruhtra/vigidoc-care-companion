@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 import VigiDocLogo from "@/components/VigiDocLogo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { supabase } from "@/integrations/supabase/client";
 
 // Report data returned by secure function (no user_id exposed)
 interface SharedReport {
@@ -73,35 +72,30 @@ const Relatorio = () => {
     setLoading(true);
     setError(null);
 
-    // Use secure RPC function that doesn't expose user_id
-    const { data, error: rpcError } = await supabase.rpc('get_shared_report_data', {
-      share_code_param: shareCode
-    });
+    try {
+      const response = await fetch(`/api/shared-reports/public/${shareCode}`);
+      if (!response.ok) {
+        setError("Relatório não encontrado ou expirado.");
+        setLoading(false);
+        return;
+      }
 
-    if (rpcError) {
-      console.error('Error loading report:', rpcError);
+      const responseData = await response.json();
+      
+      if (!responseData?.report) {
+         setError("Relatório não encontrado ou expirado.");
+         setLoading(false);
+         return;
+      }
+
+      setReport(responseData.report);
+      setVitals(responseData.vitals || []);
+      setProfile(responseData.profile);
+    } catch (err) {
+      console.error('Error loading report:', err);
       setError("Erro ao carregar relatório.");
-      setLoading(false);
-      return;
     }
-
-    const responseData = data as unknown as SharedReportResponse;
-
-    if (responseData?.error) {
-      setError("Relatório não encontrado ou expirado.");
-      setLoading(false);
-      return;
-    }
-
-    if (!responseData?.report) {
-      setError("Relatório não encontrado ou expirado.");
-      setLoading(false);
-      return;
-    }
-
-    setReport(responseData.report);
-    setVitals(responseData.vitals || []);
-    setProfile(responseData.profile);
+    
     setLoading(false);
   };
 

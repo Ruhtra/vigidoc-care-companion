@@ -15,7 +15,6 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 
 interface SharedReport {
   id: string;
@@ -74,14 +73,14 @@ const Compartilhar = () => {
     if (!user) return;
     
     setLoading(true);
-    const { data, error } = await supabase
-      .from("shared_reports")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-
-    if (!error && data) {
-      setSharedReports(data as SharedReport[]);
+    try {
+      const res = await fetch("/api/shared-reports");
+      if (res.ok) {
+        const data = await res.json();
+        setSharedReports(data);
+      }
+    } catch (e) {
+      console.error("Erro ao carregar compartilhamentos:", e);
     }
     setLoading(false);
   };
@@ -113,29 +112,31 @@ const Compartilhar = () => {
       expiresAt = expDate.toISOString();
     }
 
-    const { error } = await supabase.from("shared_reports").insert({
-      user_id: user.id,
-      share_code: shareCode,
-      title,
-      include_blood_pressure: includeBloodPressure,
-      include_heart_rate: includeHeartRate,
-      include_temperature: includeTemperature,
-      include_oxygen: includeOxygen,
-      include_weight: includeWeight,
-      include_pain: includePain,
-      include_profile: includeProfile,
-      date_from: dateFrom || null,
-      date_to: dateTo || null,
-      expires_at: expiresAt,
-    });
-
-    if (error) {
-      toast({
-        title: "Erro ao criar compartilhamento",
-        description: error.message,
-        variant: "destructive",
+    try {
+      const res = await fetch("/api/shared-reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          share_code: shareCode,
+          title,
+          include_blood_pressure: includeBloodPressure,
+          include_heart_rate: includeHeartRate,
+          include_temperature: includeTemperature,
+          include_oxygen: includeOxygen,
+          include_weight: includeWeight,
+          include_pain: includePain,
+          include_profile: includeProfile,
+          date_from: dateFrom || null,
+          date_to: dateTo || null,
+          expires_at: expiresAt,
+        })
       });
-    } else {
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Erro ao criar compartilhamento");
+      }
+
       toast({
         title: "Link criado!",
         description: "Seu relatório está pronto para ser compartilhado.",
@@ -143,6 +144,12 @@ const Compartilhar = () => {
       setShowNewShare(false);
       resetForm();
       loadReports();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao criar compartilhamento",
+        description: error.message,
+        variant: "destructive",
+      });
     }
 
     setCreating(false);
@@ -163,25 +170,29 @@ const Compartilhar = () => {
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase
-      .from("shared_reports")
-      .delete()
-      .eq("id", id);
-
-    if (!error) {
-      toast({ title: "Link removido" });
-      loadReports();
+    try {
+      const res = await fetch(`/api/shared-reports/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        toast({ title: "Link removido" });
+        loadReports();
+      }
+    } catch (e) {
+      console.error(e);
     }
   };
 
   const handleToggleActive = async (id: string, isActive: boolean) => {
-    const { error } = await supabase
-      .from("shared_reports")
-      .update({ is_active: !isActive })
-      .eq("id", id);
-
-    if (!error) {
-      loadReports();
+    try {
+      const res = await fetch(`/api/shared-reports/${id}`, { 
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: !isActive })
+      });
+      if (res.ok) {
+        loadReports();
+      }
+    } catch (e) {
+      console.error(e);
     }
   };
 

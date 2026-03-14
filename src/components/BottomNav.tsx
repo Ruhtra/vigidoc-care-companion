@@ -1,5 +1,4 @@
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { Home, ClipboardList, Bell, User, LockKeyholeOpen } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -8,34 +7,15 @@ const BottomNav = () => {
   const location = useLocation();
   const { user } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false); // Can be false immediately, user is loaded by useAuth
 
   useEffect(() => {
-    const checkAdminRole = async () => {
-      if (!user) {
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase.rpc("has_role", {
-          _user_id: user.id,
-          _role: "admin",
-        });
-
-        if (!error && data) {
-          console.log("entrei");
-
-          setIsAdmin(true);
-        }
-      } catch (error) {
-        console.error("Error checking admin role:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    checkAdminRole();
+    // Check if user has admin role via the user object provided by useAuth
+    if (user && (user as any).role === "admin") {
+      setIsAdmin(true);
+    } else {
+      setIsAdmin(false);
+    }
   }, [user]);
 
   const navItems = [

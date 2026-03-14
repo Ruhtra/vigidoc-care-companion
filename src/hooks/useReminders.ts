@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "./useAuth";
 
 export interface Reminder {
@@ -18,47 +18,15 @@ const STORAGE_KEY = "vigidoc_reminders";
 
 export const useReminders = () => {
   const { user } = useAuth();
-  const [reminders, setReminders] = useState<Reminder[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  const loadReminders = useCallback(async () => {
-    setLoading(true);
-
-    if (user) {
-      const { data, error } = await supabase
-        .from("reminders")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("time", { ascending: true });
-
-      if (!error && data) {
-        setReminders(data as Reminder[]);
-
-        // Sync local data to cloud if exists
-        const localData = localStorage.getItem(STORAGE_KEY);
-        if (localData) {
-          const localReminders = JSON.parse(localData);
-          for (const reminder of localReminders) {
-            await supabase.from("reminders").insert({
-              user_id: user.id,
-              time: reminder.time,
-              label: reminder.label,
-              enabled: reminder.enabled,
-              days: reminder.days,
-              reminder_type: reminder.reminder_type || "vital_collection",
-            });
-          }
-          localStorage.removeItem(STORAGE_KEY);
-          loadReminders();
-        }
-      }
-    } else {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        setReminders(JSON.parse(stored));
-      } else {
-        // Default reminders for new users
-        setReminders([
+  const { data: reminders = [], isLoading: loading, refetch: refresh } = useQuery({
+    queryKey: ["reminders", user?.id],
+    queryFn: async () => {
+      if (!user) {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) return JSON.parse(stored);
+        return [
           {
             id: "1",
             user_id: "local",
@@ -81,105 +49,124 @@ export const useReminders = () => {
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           },
-        ]);
+        ];
       }
+
+      const response = await fetch("/api/reminders");
+      if (!response.ok) throw new Error("Failed to fetch reminders");
+      const data = await response.json();
+      const mapped = data.map((r: any) => ({
+        id: r.id,
+        user_id: r.userId,
+        time: r.time,
+        label: r.label,
+        enabled: r.enabled,
+        days: r.days,
+        reminder_type: r.reminderType,
+        created_at: r.createdAt,
+        updated_at: r.updatedAt,
+      }));
+
+      // Sync local data to cloud
+      const localData = localStorage.getItem(STORAGE_KEY);
+      if (localData) {
+        const localReminders = JSON.parse(localData);
+        for (const reminder of localReminders) {
+          await fetch("/api/reminders", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(reminder)
+          });
+        }
+        localStorage.removeItem(STORAGE_KEY);
+        queryClient.invalidateQueries({ queryKey: ["reminders", user?.id] });
+      }
+
+      return mapped;
+    },
+    enabled: !!user || true, // Always enable, either local or cloud
+  });
+
+  const addReminderMutation = useMutation({
+    mutationFn: async (payload: any) => {
+      if (user) {
+        const response = await fetch("/api/reminders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error("Error adding reminder");
+        return response.json();
+      } else {
+        const newReminder: Reminder = {
+          id: crypto.randomUUID(),
+          user_id: "local",
+          ...payload,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        const stored = localStorage.getItem(STORAGE_KEY);
+        const current = stored ? JSON.parse(stored) : [];
+        localStorage.setItem(STORAGE_KEY, JSON.stringify([...current, newReminder]));
+        return newReminder;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reminders", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard", user?.id] });
     }
+  });
 
-    setLoading(false);
-  }, [user]);
+  const toggleReminderMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const reminder = reminders.find((r) => r.id === id);
+      if (!reminder) return;
 
-  useEffect(() => {
-    loadReminders();
-  }, [loadReminders]);
-
-  const addReminder = async (
-    time: string,
-    label: string,
-    days: string[],
-    reminderType: "vital_collection" | "medication" | "custom" = "vital_collection"
-  ) => {
-    if (user) {
-      const { error } = await supabase.from("reminders").insert({
-        user_id: user.id,
-        time,
-        label,
-        days,
-        reminder_type: reminderType,
-        enabled: true,
-      });
-
-      if (!error) {
-        loadReminders();
-      }
-      return !error;
-    } else {
-      const newReminder: Reminder = {
-        id: crypto.randomUUID(),
-        user_id: "local",
-        time,
-        label,
-        enabled: true,
-        days,
-        reminder_type: reminderType,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-
-      setReminders((prev) => {
-        const updated = [...prev, newReminder];
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-        return updated;
-      });
-      return true;
-    }
-  };
-
-  const toggleReminder = async (id: string) => {
-    const reminder = reminders.find((r) => r.id === id);
-    if (!reminder) return;
-
-    if (user) {
-      const { error } = await supabase
-        .from("reminders")
-        .update({ enabled: !reminder.enabled })
-        .eq("id", id);
-
-      if (!error) {
-        loadReminders();
-      }
-    } else {
-      setReminders((prev) => {
-        const updated = prev.map((r) =>
+      if (user) {
+        const response = await fetch(`/api/reminders/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: !reminder.enabled })
+        });
+        if (!response.ok) throw new Error("Error toggling reminder");
+      } else {
+        const updated = reminders.map((r) =>
           r.id === id ? { ...r, enabled: !r.enabled } : r
         );
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-        return updated;
-      });
-    }
-  };
-
-  const deleteReminder = async (id: string) => {
-    if (user) {
-      const { error } = await supabase.from("reminders").delete().eq("id", id);
-
-      if (!error) {
-        loadReminders();
       }
-    } else {
-      setReminders((prev) => {
-        const updated = prev.filter((r) => r.id !== id);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-        return updated;
-      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reminders", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard", user?.id] });
     }
-  };
+  });
+
+  const deleteReminderMutation = useMutation({
+    mutationFn: async (id: string) => {
+      if (user) {
+        const response = await fetch(`/api/reminders/${id}`, {
+          method: "DELETE"
+        });
+        if (!response.ok) throw new Error("Error deleting reminder");
+      } else {
+        const updated = reminders.filter((r) => r.id !== id);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reminders", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard", user?.id] });
+    }
+  });
 
   return {
     reminders,
     loading,
-    addReminder,
-    toggleReminder,
-    deleteReminder,
-    refresh: loadReminders,
+    addReminder: (time: string, label: string, days: string[], reminderType: string = "vital_collection") => 
+      addReminderMutation.mutateAsync({ time, label, days, reminder_type: reminderType, enabled: true }),
+    toggleReminder: (id: string) => toggleReminderMutation.mutateAsync(id),
+    deleteReminder: (id: string) => deleteReminderMutation.mutateAsync(id),
+    refresh,
   };
 };

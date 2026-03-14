@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useCallback, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "./useAuth";
 
 export interface VitalRecord {
@@ -18,126 +18,140 @@ export interface VitalRecord {
 
 const STORAGE_KEY = "vigidoc_vitals";
 
+// Aggregate today's vitals from multiple records (most recent value of each type)
+export const aggregateTodayVitals = (records: VitalRecord[]): Partial<VitalRecord> => {
+  const today = new Date().toDateString();
+  const todayRecords = records
+    .filter((v) => new Date(v.recorded_at).toDateString() === today)
+    .sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime());
+
+  if (todayRecords.length === 0) return {};
+
+  const aggregated: Partial<VitalRecord> = {};
+
+  for (const record of todayRecords) {
+    if (aggregated.systolic === undefined && record.systolic != null) {
+      aggregated.systolic = record.systolic;
+      aggregated.diastolic = record.diastolic;
+    }
+    if (aggregated.heart_rate === undefined && record.heart_rate != null) {
+      aggregated.heart_rate = record.heart_rate;
+    }
+    if (aggregated.temperature === undefined && record.temperature != null) {
+      aggregated.temperature = record.temperature;
+    }
+    if (aggregated.oxygen_saturation === undefined && record.oxygen_saturation != null) {
+      aggregated.oxygen_saturation = record.oxygen_saturation;
+    }
+    if (aggregated.weight === undefined && record.weight != null) {
+      aggregated.weight = record.weight;
+    }
+    if (aggregated.pain_level === undefined && record.pain_level != null) {
+      aggregated.pain_level = record.pain_level;
+    }
+  }
+
+  return aggregated;
+};
+
 export const useVitals = () => {
   const { user } = useAuth();
-  const [vitals, setVitals] = useState<VitalRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [syncing, setSyncing] = useState(false);
 
-  // Aggregate today's vitals from multiple records (most recent value of each type)
-  const aggregateTodayVitals = (records: VitalRecord[]): Partial<VitalRecord> => {
-    const today = new Date().toDateString();
-    const todayRecords = records
-      .filter((v) => new Date(v.recorded_at).toDateString() === today)
-      .sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime());
+  // Load vitals from database or localStorage
+  const { data: vitals = [], isLoading: loading, refetch: refresh } = useQuery({
+    queryKey: ["vitals", user?.id],
+    queryFn: async () => {
+      if (!user) {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        return stored ? JSON.parse(stored) : [];
+      }
+      
+      const res = await fetch("/api/vitals");
+      if (!res.ok) throw new Error("Failed to fetch vitals");
+      const data = await res.json();
+      const mapped = data.map((v: any) => ({
+        id: v.id,
+        user_id: v.userId,
+        recorded_at: v.recordedAt,
+        systolic: v.systolic,
+        diastolic: v.diastolic,
+        heart_rate: v.heartRate,
+        temperature: v.temperature,
+        oxygen_saturation: v.oxygenSaturation,
+        weight: v.weight,
+        pain_level: v.painLevel,
+        notes: v.notes
+      }));
 
-    if (todayRecords.length === 0) return {};
-
-    // Aggregate: get the most recent non-null value for each vital type
-    const aggregated: Partial<VitalRecord> = {};
-
-    for (const record of todayRecords) {
-      if (aggregated.systolic === undefined && record.systolic != null) {
-        aggregated.systolic = record.systolic;
-        aggregated.diastolic = record.diastolic;
+      // Sync local data to cloud if exists
+      const localData = localStorage.getItem(STORAGE_KEY);
+      if (localData) {
+        // Handle sync without blocking
+        syncLocalToCloud(JSON.parse(localData));
+        localStorage.removeItem(STORAGE_KEY);
       }
-      if (aggregated.heart_rate === undefined && record.heart_rate != null) {
-        aggregated.heart_rate = record.heart_rate;
-      }
-      if (aggregated.temperature === undefined && record.temperature != null) {
-        aggregated.temperature = record.temperature;
-      }
-      if (
-        aggregated.oxygen_saturation === undefined &&
-        record.oxygen_saturation != null
-      ) {
-        aggregated.oxygen_saturation = record.oxygen_saturation;
-      }
-      if (aggregated.weight === undefined && record.weight != null) {
-        aggregated.weight = record.weight;
-      }
-      if (aggregated.pain_level === undefined && record.pain_level != null) {
-        aggregated.pain_level = record.pain_level;
-      }
-    }
-
-    return aggregated;
-  };
+      return mapped;
+    },
+    enabled: !!user || !!localStorage.getItem(STORAGE_KEY),
+  });
 
   const todayVitals = useMemo(() => aggregateTodayVitals(vitals), [vitals]);
 
-
-  // Load vitals from database or localStorage
-  const loadVitals = useCallback(async () => {
-    setLoading(true);
-    
-    if (user) {
-      // Load from Supabase
-      const { data, error } = await supabase
-        .from("vital_records")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("recorded_at", { ascending: false });
-
-      if (!error && data) {
-        setVitals(data);
-
-        // Sync local data to cloud if exists
-        const localData = localStorage.getItem(STORAGE_KEY);
-        if (localData) {
-          await syncLocalToCloud(JSON.parse(localData));
-          localStorage.removeItem(STORAGE_KEY);
-        }
+  const saveVitalMutation = useMutation({
+    mutationFn: async (payload: { recordedAt: string; data: any }) => {
+      if (user) {
+        const response = await fetch("/api/vitals", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            recorded_at: payload.recordedAt,
+            ...payload.data,
+          })
+        });
+        if (!response.ok) throw new Error("Error inserting vital");
+        return response.json();
+      } else {
+        const newRecord: VitalRecord = {
+          id: crypto.randomUUID(),
+          user_id: "local",
+          recorded_at: payload.recordedAt,
+          ...payload.data
+        };
+        const stored = localStorage.getItem(STORAGE_KEY);
+        const current = stored ? JSON.parse(stored) : [];
+        const updated = [...current, newRecord];
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+        return newRecord;
       }
-    } else {
-      // Load from localStorage (offline mode)
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setVitals(parsed);
-      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vitals", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard", user?.id] });
     }
-    
-    setLoading(false);
-  }, [user]);
+  });
 
-  // Sync local data to cloud
   const syncLocalToCloud = async (localVitals: VitalRecord[]) => {
     if (!user) return;
-    
     setSyncing(true);
-    
     for (const vital of localVitals) {
-      const { error } = await supabase.from("vital_records").insert({
-        user_id: user.id,
-        recorded_at: vital.recorded_at,
-        systolic: vital.systolic,
-        diastolic: vital.diastolic,
-        heart_rate: vital.heart_rate,
-        temperature: vital.temperature,
-        oxygen_saturation: vital.oxygen_saturation,
-        weight: vital.weight,
-        pain_level: vital.pain_level,
-        notes: vital.notes
-      });
-      
-      if (error) {
+      try {
+        await fetch("/api/vitals", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(vital)
+        });
+      } catch (error) {
         console.error("Error syncing vital:", error);
       }
     }
-    
     setSyncing(false);
-    loadVitals();
+    queryClient.invalidateQueries({ queryKey: ["vitals", user?.id] });
   };
-
-  useEffect(() => {
-    loadVitals();
-  }, [loadVitals]);
 
   const saveVital = async (key: string, value: number | string, value2?: number, time?: string) => {
     const today = new Date();
-    
-    // Cria timestamp com a hora informada
     let recordedAt = today;
     if (time) {
       const [hours, minutes] = time.split(':').map(Number);
@@ -145,7 +159,6 @@ export const useVitals = () => {
     }
 
     const insertData: Record<string, number | null> = {};
-    
     if (key === "bloodPressure" && value2 !== undefined) {
       insertData.systolic = Number(value);
       insertData.diastolic = value2;
@@ -159,61 +172,14 @@ export const useVitals = () => {
       insertData[key] = Number(value);
     }
 
-    if (user) {
-      // Sempre cria um novo registro (permite múltiplas medições por dia)
-      const { data, error } = await supabase
-        .from("vital_records")
-        .insert({
-          user_id: user.id,
-          recorded_at: recordedAt.toISOString(),
-          ...insertData,
-        })
-        .select("*")
-        .single();
-
-      if (error) {
-        console.error("Error inserting vital:", error);
-        return;
-      }
-
-      if (data) {
-        setVitals((prev) => {
-          const merged = [data as VitalRecord, ...prev];
-          merged.sort(
-            (a, b) =>
-              new Date(b.recorded_at).getTime() -
-              new Date(a.recorded_at).getTime()
-          );
-          return merged;
-        });
-      }
-
-      // garante sincronização/consistência com o backend
-      loadVitals();
-    } else {
-      // Save to localStorage (offline mode) - sempre cria novo registro
-      setVitals((prev) => {
-        const newRecord: VitalRecord = {
-          id: crypto.randomUUID(),
-          user_id: "local",
-          recorded_at: recordedAt.toISOString(),
-          ...insertData
-        };
-        
-        const updated = [...prev, newRecord];
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-        
-        return updated;
-      });
-    }
+    return saveVitalMutation.mutateAsync({
+      recordedAt: recordedAt.toISOString(),
+      data: insertData
+    });
   };
 
-  const getStatus = (
-    key: string,
-    value?: number | null
-  ): "normal" | "warning" | "alert" => {
+  const getStatus = (key: string, value?: number | null): "normal" | "warning" | "alert" => {
     if (value === undefined || value === null) return "normal";
-
     const ranges: Record<string, { normal: [number, number]; warning: [number, number] }> = {
       systolic: { normal: [90, 120], warning: [121, 140] },
       diastolic: { normal: [60, 80], warning: [81, 90] },
@@ -222,14 +188,20 @@ export const useVitals = () => {
       oxygen_saturation: { normal: [95, 100], warning: [90, 94] },
       pain_level: { normal: [0, 3], warning: [4, 6] },
     };
-
     const range = ranges[key];
     if (!range) return "normal";
-
     if (value >= range.normal[0] && value <= range.normal[1]) return "normal";
     if (value >= range.warning[0] && value <= range.warning[1]) return "warning";
     return "alert";
   };
 
-  return { vitals, todayVitals, saveVital, getStatus, loading, syncing, refresh: loadVitals };
+  return { 
+    vitals, 
+    todayVitals, 
+    saveVital, 
+    getStatus, 
+    loading, 
+    syncing, 
+    refresh 
+  };
 };

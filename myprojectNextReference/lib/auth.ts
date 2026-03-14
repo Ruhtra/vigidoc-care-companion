@@ -17,4 +17,13 @@ export const auth = betterAuth({
       },
     },
   },
+  trustedOrigins: [
+    "http://localhost:8080",
+    "http://localhost:8080/",
+    "http://localhost:5173",
+    "https://b62c-189-124-139-83.ngrok-free.app"
+  ],
+  advanced: {
+    trustedProxyHeaders: true,
+  }
 });

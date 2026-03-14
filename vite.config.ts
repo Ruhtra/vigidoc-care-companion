@@ -7,9 +7,18 @@ import { VitePWA } from "vite-plugin-pwa";
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
-    allowedHosts: ["b62c-189-124-139-83.ngrok-free.app"],
+    allowedHosts: [
+      "e8b5-2804-29b8-50cf-261b-3924-4f93-311-34c5.ngrok-free.app",
+      "f19c-2804-29b8-50cf-261b-3924-4f93-311-34c5.ngrok-free.app",
+    ],
     host: "::",
     port: 8080,
+    proxy: {
+      "/api": {
+        target: "http://localhost:3000",
+        changeOrigin: true,
+      },
+    },
   },
   plugins: [
     react(),
