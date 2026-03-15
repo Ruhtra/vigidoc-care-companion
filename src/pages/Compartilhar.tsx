@@ -74,7 +74,7 @@ const Compartilhar = () => {
     
     setLoading(true);
     try {
-      const res = await fetch("/api/shared-reports");
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/shared-reports`);
       if (res.ok) {
         const data = await res.json();
         setSharedReports(data);
@@ -113,7 +113,7 @@ const Compartilhar = () => {
     }
 
     try {
-      const res = await fetch("/api/shared-reports", {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/shared-reports`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -171,11 +171,10 @@ const Compartilhar = () => {
 
   const handleDelete = async (id: string) => {
     try {
-      const res = await fetch(`/api/shared-reports/${id}`, { method: "DELETE" });
-      if (res.ok) {
-        toast({ title: "Link removido" });
-        loadReports();
-      }
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/shared-reports/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Falha ao deletar relatório");
+      toast({ title: "Link removido" });
+      loadReports();
     } catch (e) {
       console.error(e);
     }
@@ -183,7 +182,7 @@ const Compartilhar = () => {
 
   const handleToggleActive = async (id: string, isActive: boolean) => {
     try {
-      const res = await fetch(`/api/shared-reports/${id}`, { 
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/shared-reports/${id}`, { 
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ is_active: !isActive })

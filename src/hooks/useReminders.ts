@@ -52,7 +52,7 @@ export const useReminders = () => {
         ];
       }
 
-      const response = await fetch("/api/reminders");
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/reminders`);
       if (!response.ok) throw new Error("Failed to fetch reminders");
       const data = await response.json();
       const mapped = data.map((r: any) => ({
@@ -72,7 +72,7 @@ export const useReminders = () => {
       if (localData) {
         const localReminders = JSON.parse(localData);
         for (const reminder of localReminders) {
-          await fetch("/api/reminders", {
+          await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/reminders`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(reminder)
@@ -90,7 +90,7 @@ export const useReminders = () => {
   const addReminderMutation = useMutation({
     mutationFn: async (payload: any) => {
       if (user) {
-        const response = await fetch("/api/reminders", {
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/reminders`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
@@ -123,7 +123,7 @@ export const useReminders = () => {
       if (!reminder) return;
 
       if (user) {
-        const response = await fetch(`/api/reminders/${id}`, {
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/reminders/${id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ enabled: !reminder.enabled })
@@ -145,7 +145,7 @@ export const useReminders = () => {
   const deleteReminderMutation = useMutation({
     mutationFn: async (id: string) => {
       if (user) {
-        const response = await fetch(`/api/reminders/${id}`, {
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/reminders/${id}`, {
           method: "DELETE"
         });
         if (!response.ok) throw new Error("Error deleting reminder");

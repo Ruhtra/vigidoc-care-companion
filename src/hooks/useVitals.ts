@@ -68,7 +68,7 @@ export const useVitals = () => {
         return stored ? JSON.parse(stored) : [];
       }
       
-      const res = await fetch("/api/vitals");
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/vitals`);
       if (!res.ok) throw new Error("Failed to fetch vitals");
       const data = await res.json();
       const mapped = data.map((v: any) => ({
@@ -102,7 +102,7 @@ export const useVitals = () => {
   const saveVitalMutation = useMutation({
     mutationFn: async (payload: { recordedAt: string; data: any }) => {
       if (user) {
-        const response = await fetch("/api/vitals", {
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/vitals`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -137,7 +137,7 @@ export const useVitals = () => {
     setSyncing(true);
     for (const vital of localVitals) {
       try {
-        await fetch("/api/vitals", {
+        await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/vitals`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(vital)

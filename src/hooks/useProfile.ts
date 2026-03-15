@@ -39,7 +39,7 @@ export const useProfile = () => {
         if (stored) return JSON.parse(stored);
         return null;
       }
-      const response = await fetch("/api/profile");
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/profile`);
       if (!response.ok) throw new Error("Failed to fetch profile");
       const data = await response.json();
       return {
@@ -64,7 +64,7 @@ export const useProfile = () => {
       }
 
       if (user) {
-        const response = await fetch("/api/profile", {
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/profile`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
