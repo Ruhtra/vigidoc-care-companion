@@ -74,7 +74,9 @@ const Relatorio = () => {
 
     try {
       const baseUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || "";
-      const response = await fetch(`${baseUrl}/api/shared-reports/public/${shareCode}`);
+      const response = await fetch(`${baseUrl}/api/shared-reports/public/${shareCode}`, {
+        credentials: "include",
+      });
       if (!response.ok) {
         setError("Relatório não encontrado ou expirado.");
         setLoading(false);

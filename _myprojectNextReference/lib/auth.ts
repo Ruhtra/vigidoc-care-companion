@@ -22,5 +22,9 @@ export const auth = betterAuth({
     : [],
   advanced: {
     trustedProxyHeaders: true,
+    cookiePrefix: "vigidoc",
+  },
+  cookie: {
+    domain: ".vigidoc.org",
   }
 });

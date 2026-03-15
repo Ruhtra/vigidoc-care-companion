@@ -53,7 +53,9 @@ export const useReminders = () => {
       }
 
       const baseUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || "";
-      const response = await fetch(`${baseUrl}/api/reminders`);
+      const response = await fetch(`${baseUrl}/api/reminders`, {
+        credentials: "include",
+      });
       if (!response.ok) throw new Error("Failed to fetch reminders");
       const data = await response.json();
       const mapped = data.map((r: any) => ({
@@ -76,6 +78,7 @@ export const useReminders = () => {
           await fetch(`${baseUrl}/api/reminders`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
+            credentials: "include",
             body: JSON.stringify(reminder)
           });
         }
@@ -95,6 +98,7 @@ export const useReminders = () => {
         const response = await fetch(`${baseUrl}/api/reminders`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify(payload)
         });
         if (!response.ok) throw new Error("Error adding reminder");
@@ -129,6 +133,7 @@ export const useReminders = () => {
         const response = await fetch(`${baseUrl}/api/reminders/${id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({ enabled: !reminder.enabled })
         });
         if (!response.ok) throw new Error("Error toggling reminder");
@@ -150,7 +155,8 @@ export const useReminders = () => {
       if (user) {
         const baseUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || "";
         const response = await fetch(`${baseUrl}/api/reminders/${id}`, {
-          method: "DELETE"
+          method: "DELETE",
+          credentials: "include",
         });
         if (!response.ok) throw new Error("Error deleting reminder");
       } else {

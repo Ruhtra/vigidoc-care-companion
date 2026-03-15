@@ -69,7 +69,9 @@ export const useVitals = () => {
       }
       
       const baseUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || "";
-      const res = await fetch(`${baseUrl}/api/vitals`);
+      const res = await fetch(`${baseUrl}/api/vitals`, {
+        credentials: "include",
+      });
       if (!res.ok) throw new Error("Failed to fetch vitals");
       const data = await res.json();
       const mapped = data.map((v: any) => ({
@@ -107,6 +109,7 @@ export const useVitals = () => {
         const response = await fetch(`${baseUrl}/api/vitals`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({
             recorded_at: payload.recordedAt,
             ...payload.data,
@@ -143,6 +146,7 @@ export const useVitals = () => {
         await fetch(`${baseUrl}/api/vitals`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify(vital)
         });
       } catch (error) {

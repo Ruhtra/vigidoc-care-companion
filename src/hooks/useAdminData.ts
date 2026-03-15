@@ -78,7 +78,9 @@ export const useAdminData = (): AdminDataResult => {
       if (userId) params.append("userId", userId);
 
       const baseUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || "";
-      const response = await fetch(`${baseUrl}/api/admin/patients?${params.toString()}`);
+      const response = await fetch(`${baseUrl}/api/admin/patients?${params.toString()}`, {
+        credentials: "include",
+      });
       if (!response.ok) {
          if (response.status === 403) {
             setError("Você não tem permissão para acessar esta página");

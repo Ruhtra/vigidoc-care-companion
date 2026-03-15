@@ -40,7 +40,9 @@ export const useProfile = () => {
         return null;
       }
       const baseUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || "";
-      const response = await fetch(`${baseUrl}/api/profile`);
+      const response = await fetch(`${baseUrl}/api/profile`, {
+        credentials: "include",
+      });
       if (!response.ok) throw new Error("Failed to fetch profile");
       const data = await response.json();
       return {
@@ -69,6 +71,7 @@ export const useProfile = () => {
         const response = await fetch(`${baseUrl}/api/profile`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({
             phone: data.phone || null,
             birthDate: data.birth_date || null,
