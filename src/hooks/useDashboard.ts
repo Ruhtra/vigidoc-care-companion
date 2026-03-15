@@ -15,7 +15,8 @@ export const useDashboard = () => {
   return useQuery({
     queryKey: ["dashboard", user?.id],
     queryFn: async (): Promise<DashboardData> => {
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/dashboard`);
+      const baseUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || "";
+      const response = await fetch(`${baseUrl}/api/dashboard`);
       if (!response.ok) {
         throw new Error("Failed to fetch dashboard data");
       }
