@@ -20,7 +20,11 @@ export const useReminders = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: reminders = [], isLoading: loading, refetch: refresh } = useQuery({
+  const {
+    data: reminders = [],
+    isLoading: loading,
+    refetch: refresh,
+  } = useQuery({
     queryKey: ["reminders", user?.id],
     queryFn: async () => {
       if (!user) {
@@ -52,7 +56,8 @@ export const useReminders = () => {
         ];
       }
 
-      const baseUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || "";
+      const baseUrl =
+        import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || "";
       const response = await fetch(`${baseUrl}/api/reminders`, {
         credentials: "include",
       });
@@ -79,7 +84,7 @@ export const useReminders = () => {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
-            body: JSON.stringify(reminder)
+            body: JSON.stringify(reminder),
           });
         }
         localStorage.removeItem(STORAGE_KEY);
@@ -94,12 +99,15 @@ export const useReminders = () => {
   const addReminderMutation = useMutation({
     mutationFn: async (payload: any) => {
       if (user) {
-        const baseUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || "";
+        const baseUrl =
+          import.meta.env.VITE_API_URL ||
+          import.meta.env.VITE_BACKEND_URL ||
+          "";
         const response = await fetch(`${baseUrl}/api/reminders`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
         });
         if (!response.ok) throw new Error("Error adding reminder");
         return response.json();
@@ -113,33 +121,39 @@ export const useReminders = () => {
         };
         const stored = localStorage.getItem(STORAGE_KEY);
         const current = stored ? JSON.parse(stored) : [];
-        localStorage.setItem(STORAGE_KEY, JSON.stringify([...current, newReminder]));
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify([...current, newReminder]),
+        );
         return newReminder;
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reminders", user?.id] });
       queryClient.invalidateQueries({ queryKey: ["dashboard", user?.id] });
-    }
+    },
   });
 
   const toggleReminderMutation = useMutation({
     mutationFn: async (id: string) => {
-      const reminder = reminders.find((r) => r.id === id);
+      const reminder = reminders.find((r: any) => r.id === id);
       if (!reminder) return;
 
       if (user) {
-        const baseUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || "";
+        const baseUrl =
+          import.meta.env.VITE_API_URL ||
+          import.meta.env.VITE_BACKEND_URL ||
+          "";
         const response = await fetch(`${baseUrl}/api/reminders/${id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ enabled: !reminder.enabled })
+          body: JSON.stringify({ enabled: !reminder.enabled }),
         });
         if (!response.ok) throw new Error("Error toggling reminder");
       } else {
-        const updated = reminders.map((r) =>
-          r.id === id ? { ...r, enabled: !r.enabled } : r
+        const updated = reminders.map((r: any) =>
+          r.id === id ? { ...r, enabled: !r.enabled } : r,
         );
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
       }
@@ -147,34 +161,48 @@ export const useReminders = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reminders", user?.id] });
       queryClient.invalidateQueries({ queryKey: ["dashboard", user?.id] });
-    }
+    },
   });
 
   const deleteReminderMutation = useMutation({
     mutationFn: async (id: string) => {
       if (user) {
-        const baseUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || "";
+        const baseUrl =
+          import.meta.env.VITE_API_URL ||
+          import.meta.env.VITE_BACKEND_URL ||
+          "";
         const response = await fetch(`${baseUrl}/api/reminders/${id}`, {
           method: "DELETE",
           credentials: "include",
         });
         if (!response.ok) throw new Error("Error deleting reminder");
       } else {
-        const updated = reminders.filter((r) => r.id !== id);
+        const updated = reminders.filter((r: any) => r.id !== id);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reminders", user?.id] });
       queryClient.invalidateQueries({ queryKey: ["dashboard", user?.id] });
-    }
+    },
   });
 
   return {
     reminders,
     loading,
-    addReminder: (time: string, label: string, days: string[], reminderType: string = "vital_collection") => 
-      addReminderMutation.mutateAsync({ time, label, days, reminder_type: reminderType, enabled: true }),
+    addReminder: (
+      time: string,
+      label: string,
+      days: string[],
+      reminderType: string = "vital_collection",
+    ) =>
+      addReminderMutation.mutateAsync({
+        time,
+        label,
+        days,
+        reminder_type: reminderType,
+        enabled: true,
+      }),
     toggleReminder: (id: string) => toggleReminderMutation.mutateAsync(id),
     deleteReminder: (id: string) => deleteReminderMutation.mutateAsync(id),
     refresh,

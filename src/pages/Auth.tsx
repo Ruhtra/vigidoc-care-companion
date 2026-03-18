@@ -1,32 +1,41 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Mail, Lock, User, ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
-import VigiDocLogo from "@/components/VigiDocLogo";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { useToast } from "../hooks/use-toast";
+import { useAuth } from "../hooks/useAuth";
+import VigiDocLogo from "../components/VigiDocLogo";
 import { z } from "zod";
 
 const emailSchema = z.string().email("Email inválido");
-const passwordSchema = z.string().min(6, "A senha deve ter pelo menos 6 caracteres");
+const passwordSchema = z
+  .string()
+  .min(6, "A senha deve ter pelo menos 6 caracteres");
 
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, loading, signIn, signUp } = useAuth();
-  
+
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>(
+    {},
+  );
 
   useEffect(() => {
     if (!loading && user) {
@@ -36,7 +45,7 @@ const Auth = () => {
 
   const validateForm = () => {
     const newErrors: { email?: string; password?: string } = {};
-    
+
     try {
       emailSchema.parse(email);
     } catch (e) {
@@ -44,7 +53,7 @@ const Auth = () => {
         newErrors.email = e.errors[0].message;
       }
     }
-    
+
     try {
       passwordSchema.parse(password);
     } catch (e) {
@@ -52,63 +61,63 @@ const Auth = () => {
         newErrors.password = e.errors[0].message;
       }
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
-    
+
     setIsSubmitting(true);
 
     try {
       if (isLogin) {
         const { error } = await signIn(email, password);
-        
-        if (error) {
-          if (error.message.includes("Invalid login credentials")) {
+
+        if (error != undefined && error != null) {
+          if (error.message?.includes("Invalid login credentials")) {
             toast({
               title: "Erro ao entrar",
               description: "Email ou senha incorretos. Verifique seus dados.",
-              variant: "destructive"
+              variant: "destructive",
             });
           } else {
             toast({
               title: "Erro ao entrar",
               description: error.message,
-              variant: "destructive"
+              variant: "destructive",
             });
           }
         } else {
           toast({
             title: "Bem-vindo!",
-            description: "Login realizado com sucesso."
+            description: "Login realizado com sucesso.",
           });
         }
       } else {
         const { error } = await signUp(email, password, fullName);
-        
+
         if (error) {
-          if (error.message.includes("already registered")) {
+          if (error.message?.includes("already registered")) {
             toast({
               title: "Email já cadastrado",
               description: "Este email já está em uso. Tente fazer login.",
-              variant: "destructive"
+              variant: "destructive",
             });
           } else {
             toast({
               title: "Erro ao cadastrar",
               description: error.message,
-              variant: "destructive"
+              variant: "destructive",
             });
           }
         } else {
           toast({
             title: "Conta criada!",
-            description: "Sua conta foi criada com sucesso."
+            description: "Sua conta foi criada com sucesso.",
           });
         }
       }
@@ -230,11 +239,7 @@ const Auth = () => {
               className="w-full btn-primary"
               disabled={isSubmitting}
             >
-              {isSubmitting
-                ? "Aguarde..."
-                : isLogin
-                ? "Entrar"
-                : "Criar Conta"}
+              {isSubmitting ? "Aguarde..." : isLogin ? "Entrar" : "Criar Conta"}
             </Button>
           </form>
 
