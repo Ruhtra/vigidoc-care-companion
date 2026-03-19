@@ -59,6 +59,20 @@ export const useVitals = () => {
   const queryClient = useQueryClient();
   const [syncing, setSyncing] = useState(false);
 
+  const mapVital = (v: any): VitalRecord => ({
+    id: v.id,
+    user_id: v.userId ?? v.user_id,
+    recorded_at: v.recordedAt ?? v.recorded_at,
+    systolic: v.systolic,
+    diastolic: v.diastolic,
+    heart_rate: v.heartRate ?? v.heart_rate,
+    temperature: v.temperature,
+    oxygen_saturation: v.oxygenSaturation ?? v.oxygen_saturation,
+    weight: v.weight,
+    pain_level: v.painLevel ?? v.pain_level,
+    notes: v.notes
+  });
+
   // Load vitals from database or localStorage
   const { data: vitals = [], isLoading: loading, refetch: refresh } = useQuery({
     queryKey: ["vitals", user?.id],
@@ -74,19 +88,7 @@ export const useVitals = () => {
       });
       if (!res.ok) throw new Error("Failed to fetch vitals");
       const data = await res.json();
-      const mapped = data.map((v: any) => ({
-        id: v.id,
-        user_id: v.userId,
-        recorded_at: v.recordedAt,
-        systolic: v.systolic,
-        diastolic: v.diastolic,
-        heart_rate: v.heartRate,
-        temperature: v.temperature,
-        oxygen_saturation: v.oxygenSaturation,
-        weight: v.weight,
-        pain_level: v.painLevel,
-        notes: v.notes
-      }));
+      const mapped = data.map(mapVital);
 
       // Sync local data to cloud if exists
       const localData = localStorage.getItem(STORAGE_KEY);
@@ -131,9 +133,22 @@ export const useVitals = () => {
         return newRecord;
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["vitals", user?.id] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard", user?.id] });
+    onSuccess: (newVitalRaw) => {
+      const newVital = mapVital(newVitalRaw);
+
+      // Manual update of the vitals cache to avoid full re-fetch
+      queryClient.setQueryData(["vitals", user?.id], (old: VitalRecord[] | undefined) => {
+        return old ? [newVital, ...old] : [newVital];
+      });
+
+      // Update dashboard cache if it exists
+      queryClient.setQueryData(["dashboard", user?.id], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          vitals: old.vitals ? [newVitalRaw, ...old.vitals] : [newVitalRaw]
+        };
+      });
     }
   });
 

@@ -100,9 +100,34 @@ export const useProfile = () => {
         return updatedProfile;
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["profile", user?.id] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard", user?.id] });
+    onSuccess: (_, variables) => {
+      // Manual update of profile cache
+      queryClient.setQueryData(["profile", user?.id], (old: Profile | undefined) => {
+        if (!old) return old;
+        return {
+          ...old,
+          full_name: variables.full_name ?? old.full_name,
+          birth_date: variables.birth_date ?? old.birth_date,
+          phone: variables.phone ?? old.phone,
+          emergency_contact: variables.emergency_contact ?? old.emergency_contact,
+          medical_notes: variables.medical_notes ?? old.medical_notes,
+        };
+      });
+
+      // Update dashboard cache
+      queryClient.setQueryData(["dashboard", user?.id], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          profile: {
+            ...old.profile,
+            birthDate: variables.birth_date ?? old.profile?.birthDate,
+            phone: variables.phone ?? old.profile?.phone,
+            emergencyContact: variables.emergency_contact ?? old.profile?.emergencyContact,
+            medicalNotes: variables.medical_notes ?? old.profile?.medicalNotes,
+          }
+        };
+      });
     }
   });
 

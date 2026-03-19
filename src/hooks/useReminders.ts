@@ -20,6 +20,18 @@ export const useReminders = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
+  const mapReminder = (r: any): Reminder => ({
+    id: r.id,
+    user_id: r.userId ?? r.user_id,
+    time: r.time,
+    label: r.label,
+    enabled: r.enabled,
+    days: r.days,
+    reminder_type: r.reminderType ?? r.reminder_type,
+    created_at: r.createdAt ?? r.created_at,
+    updated_at: r.updatedAt ?? r.updated_at,
+  });
+
   const {
     data: reminders = [],
     isLoading: loading,
@@ -63,17 +75,7 @@ export const useReminders = () => {
       });
       if (!response.ok) throw new Error("Failed to fetch reminders");
       const data = await response.json();
-      const mapped = data.map((r: any) => ({
-        id: r.id,
-        user_id: r.userId,
-        time: r.time,
-        label: r.label,
-        enabled: r.enabled,
-        days: r.days,
-        reminder_type: r.reminderType,
-        created_at: r.createdAt,
-        updated_at: r.updatedAt,
-      }));
+      const mapped = data.map(mapReminder);
 
       // Sync local data to cloud
       const localData = localStorage.getItem(STORAGE_KEY);
@@ -128,9 +130,20 @@ export const useReminders = () => {
         return newReminder;
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["reminders", user?.id] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard", user?.id] });
+    onSuccess: (newReminderRaw) => {
+      const newReminder = mapReminder(newReminderRaw);
+
+      queryClient.setQueryData(["reminders", user?.id], (old: Reminder[] | undefined) => {
+        return old ? [...old, newReminder] : [newReminder];
+      });
+
+      queryClient.setQueryData(["dashboard", user?.id], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          reminders: old.reminders ? [...old.reminders, newReminderRaw] : [newReminderRaw]
+        };
+      });
     },
   });
 
@@ -158,9 +171,21 @@ export const useReminders = () => {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["reminders", user?.id] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard", user?.id] });
+    onSuccess: (_, id) => {
+      const updater = (old: Reminder[] | undefined) => 
+        old?.map(r => r.id === id ? { ...r, enabled: !r.enabled } : r);
+      
+      queryClient.setQueryData(["reminders", user?.id], updater);
+      
+      queryClient.setQueryData(["dashboard", user?.id], (old: any) => {
+        if (!old || !old.reminders) return old;
+        return {
+          ...old,
+          reminders: old.reminders.map((r: any) => 
+            r.id === id ? { ...r, enabled: !r.enabled } : r
+          )
+        };
+      });
     },
   });
 
@@ -181,9 +206,18 @@ export const useReminders = () => {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["reminders", user?.id] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard", user?.id] });
+    onSuccess: (_, id) => {
+      queryClient.setQueryData(["reminders", user?.id], (old: Reminder[] | undefined) => 
+        old?.filter(r => r.id !== id)
+      );
+
+      queryClient.setQueryData(["dashboard", user?.id], (old: any) => {
+        if (!old || !old.reminders) return old;
+        return {
+          ...old,
+          reminders: old.reminders.filter((r: any) => r.id !== id)
+        };
+      });
     },
   });
 
