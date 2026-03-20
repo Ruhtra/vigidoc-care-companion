@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://medic.vigidoc.org/api/:path*"
+    }
+  ]
+}
