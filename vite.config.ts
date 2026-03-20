@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
       port: 8080,
       proxy: {
         "/api": {
-          target: env.VITE_API_URL || "http://localhost:3000",
+          target: "https://medic.vigidoc.org",
           changeOrigin: true,
         },
       },
