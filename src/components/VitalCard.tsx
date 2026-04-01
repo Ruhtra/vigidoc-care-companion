@@ -5,7 +5,7 @@ interface VitalCardProps {
   label: string;
   value: string;
   unit: string;
-  status?: "normal" | "warning" | "alert";
+  status?: "normal" | "warning" | "alert" | "critical";
   onClick?: () => void;
 }
 
@@ -13,13 +13,15 @@ const VitalCard = ({ icon, label, value, unit, status = "normal", onClick }: Vit
   const statusStyles = {
     normal: "border-primary/30 bg-primary/5",
     warning: "border-warning/30 bg-warning/5",
-    alert: "border-destructive/30 bg-destructive/5",
+    alert: "border-alert/30 bg-alert/5",
+    critical: "border-destructive/30 bg-destructive/5",
   };
 
   const statusDotStyles = {
     normal: "bg-primary",
     warning: "bg-warning",
-    alert: "bg-destructive animate-pulse-soft",
+    alert: "bg-alert animate-pulse-soft",
+    critical: "bg-destructive animate-pulse-soft",
   };
 
   return (

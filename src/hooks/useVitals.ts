@@ -1,6 +1,8 @@
 import { useState, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "./useAuth";
+import { getVitalStatus } from "../utils/vitals";
+import type { VitalStatus } from "../types/patient";
 
 export interface VitalRecord {
   id: string;
@@ -200,21 +202,8 @@ export const useVitals = () => {
     });
   };
 
-  const getStatus = (key: string, value?: number | null): "normal" | "warning" | "alert" => {
-    if (value === undefined || value === null) return "normal";
-    const ranges: Record<string, { normal: [number, number]; warning: [number, number] }> = {
-      systolic: { normal: [90, 120], warning: [121, 140] },
-      diastolic: { normal: [60, 80], warning: [81, 90] },
-      heart_rate: { normal: [60, 100], warning: [50, 110] },
-      temperature: { normal: [36, 37.5], warning: [37.6, 38.5] },
-      oxygen_saturation: { normal: [95, 100], warning: [90, 94] },
-      pain_level: { normal: [0, 3], warning: [4, 6] },
-    };
-    const range = ranges[key];
-    if (!range) return "normal";
-    if (value >= range.normal[0] && value <= range.normal[1]) return "normal";
-    if (value >= range.warning[0] && value <= range.warning[1]) return "warning";
-    return "alert";
+  const getStatus = (key: string, value?: number | null): VitalStatus => {
+    return getVitalStatus(key, value);
   };
 
   return { 
